@@ -58,6 +58,11 @@
             background-color: var(--primary);
         }
 
+        .server-icon.active {
+            background-color: var(--primary);
+            border-radius: 16px;
+        }
+
         /* Channels sidebar */
         .channels {
             width: 240px;
@@ -340,11 +345,9 @@
     </style>
 </head>
 <body>
-    <!-- Servers sidebar -->
+    <!-- Servers sidebar - now just has group management button -->
     <div class="servers">
-        <div class="server-icon">+</div>
-        <div class="server-icon">D</div>
-        <div class="server-icon active">G</div>
+        <div class="server-icon" id="group-management-btn">+</div>
     </div>
 
     <!-- Channels sidebar -->
@@ -436,7 +439,7 @@
             audioContext: null,
             voiceConnections: {},
             currentChannel: 'text',
-            members: [] // Empty members array - no bots by default
+            members: []
         };
 
         // DOM elements
@@ -457,7 +460,8 @@
             cancelGroup: document.getElementById('cancel-group'),
             membersList: document.getElementById('members-list'),
             voiceIndicator: document.getElementById('voice-indicator'),
-            channels: document.querySelectorAll('.channel')
+            channels: document.querySelectorAll('.channel'),
+            groupManagementBtn: document.getElementById('group-management-btn')
         };
 
         // Initialize PeerJS
@@ -471,7 +475,7 @@
 
             state.peer.on('open', (id) => {
                 console.log('Peer connected with ID:', id);
-                showGroupModal();
+                // Don't show group modal automatically now
                 
                 // Add yourself to members list
                 addMember(state.username, state.peer.id);
@@ -907,6 +911,15 @@
                     switchChannel(channelType);
                 }
             });
+        });
+
+        // Group management button
+        elements.groupManagementBtn.addEventListener('click', () => {
+            if (state.peer) {
+                showGroupModal();
+            } else {
+                addMessage('Please set your username first', 'system');
+            }
         });
 
         // Initialize
