@@ -440,9 +440,8 @@
             voiceConnections: {},
             currentChannel: 'text',
             members: [],
-            peerUsernames: {} // NEW: Tracks usernames by peer ID
+            peerUsernames: {} // Tracks usernames by peer ID
         };
-
 
         // DOM elements
         const elements = {
@@ -477,8 +476,6 @@
 
             state.peer.on('open', (id) => {
                 console.log('Peer connected with ID:', id);
-                // Don't show group modal automatically now
-                
                 // Add yourself to members list
                 addMember(state.username, state.peer.id);
             });
@@ -497,7 +494,7 @@
             state.connections.push(conn);
 
             conn.on('open', () => {
-                // Send our username with the connection metadata
+                // Send username to peer
                 conn.send({
                     type: 'user-join',
                     username: state.username,
@@ -517,9 +514,11 @@
             });
 
             conn.on('close', () => {
-                addMessage(`${conn.metadata.username} left the group`, 'system');
+                const username = state.peerUsernames[conn.peer] || conn.peer;
+                addMessage(`${username} left the group`, 'system');
                 state.connections = state.connections.filter(c => c !== conn);
                 removeMember(conn.peer);
+                delete state.peerUsernames[conn.peer];
             });
 
             conn.on('error', (err) => {
@@ -543,7 +542,18 @@
                         addMessage(data.text, 'remote', senderUsername);
                     }
                     break;
-                // [Rest of the switch cases remain the same]
+                case 'voice-offer':
+                    handleVoiceOffer(conn, data);
+                    break;
+                case 'voice-answer':
+                    handleVoiceAnswer(conn, data);
+                    break;
+                case 'voice-candidate':
+                    handleVoiceCandidate(conn, data);
+                    break;
+                case 'voice-state':
+                    updateMemberVoiceState(data.userId, data.inVoice);
+                    break;
             }
         }
 
@@ -840,14 +850,15 @@
 
         elements.cancelUsername.addEventListener('click', hideUsernameModal);
 
-         elements.joinGroup.addEventListener('click', () => {
+        elements.joinGroup.addEventListener('click', () => {
             const groupId = elements.groupIdInput.value.trim();
             if (groupId) {
                 state.currentGroup = groupId;
                 hideGroupModal();
                 
+                // Connect to group host
                 const conn = state.peer.connect(groupId, {
-                    metadata: { // Added proper metadata
+                    metadata: {
                         username: state.username,
                         userId: state.peer.id
                     }
@@ -857,7 +868,6 @@
                 addMessage(`Joined group ${groupId}`, 'system');
             }
         });
-
 
         elements.createGroup.addEventListener('click', () => {
             state.currentGroup = state.peer.id;
