@@ -3,205 +3,688 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SparkChat - PeerJS</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <title>Discord-Like Chat</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #4361ee;
-            --secondary: #3f37c9;
-            --accent: #4895ef;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --success: #4cc9f0;
-            --danger: #f72585;
-            --border-radius: 12px;
-            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --primary: #5865F2;
+            --dark: #2C2F33;
+            --darker: #23272A;
+            --light: #FFFFFF;
+            --gray: #99AAB5;
+            --success: #3BA55C;
+            --danger: #ED4245;
         }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Roboto', sans-serif;
         }
-        
+
         body {
-            font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh;
             display: flex;
-            justify-content: center;
+            height: 100vh;
+            background-color: var(--dark);
+            color: var(--light);
+        }
+
+        /* Server/Group sidebar */
+        .servers {
+            width: 72px;
+            background-color: var(--darker);
+            padding: 12px 0;
+            display: flex;
+            flex-direction: column;
             align-items: center;
-            padding: 20px;
+            gap: 8px;
         }
-        
-        .chat-container {
-            width: 100%;
-            max-width: 500px;
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            overflow: hidden;
-        }
-        
-        .chat-header {
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            color: white;
-            padding: 20px;
-            text-align: center;
-        }
-        
-        .chat-header h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
-        }
-        
-        .peer-info {
-            background: rgba(255, 255, 255, 0.2);
-            padding: 10px;
-            border-radius: var(--border-radius);
-            margin-top: 10px;
-            font-size: 0.9rem;
-        }
-        
-        .chat-body {
-            padding: 20px;
-        }
-        
-        .connection-panel {
-            background: var(--light);
-            padding: 15px;
-            border-radius: var(--border-radius);
-            margin-bottom: 20px;
-        }
-        
-        .input-group {
-            margin-bottom: 15px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-            color: var(--dark);
-        }
-        
-        input {
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: var(--border-radius);
-            font-family: 'Poppins', sans-serif;
-            transition: all 0.3s;
-        }
-        
-        input:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
-        }
-        
-        button {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: var(--border-radius);
-            font-family: 'Poppins', sans-serif;
-            font-weight: 500;
+
+        .server-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background-color: var(--gray);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
-            transition: all 0.3s;
-            width: 100%;
+            transition: all 0.2s;
         }
-        
-        button:hover {
-            background: var(--secondary);
-            transform: translateY(-2px);
+
+        .server-icon:hover {
+            border-radius: 16px;
+            background-color: var(--primary);
         }
-        
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
+
+        /* Channels sidebar */
+        .channels {
+            width: 240px;
+            background-color: var(--darker);
+            display: flex;
+            flex-direction: column;
         }
-        
-        .chat-messages {
-            height: 300px;
-            border: 1px solid #eee;
-            border-radius: var(--border-radius);
-            padding: 15px;
+
+        .channel-header {
+            padding: 16px;
+            border-bottom: 1px solid rgba(0,0,0,0.2);
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .channel-list {
+            flex: 1;
             overflow-y: auto;
-            margin-bottom: 20px;
-            background: var(--light);
+            padding: 8px 0;
         }
-        
+
+        .channel {
+            padding: 8px 16px;
+            margin: 0 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .channel:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        .channel.active {
+            background-color: rgba(255,255,255,0.2);
+        }
+
+        /* Main chat area */
+        .chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
         .message {
-            margin-bottom: 10px;
-            padding: 10px 15px;
-            border-radius: var(--border-radius);
-            max-width: 80%;
-            word-wrap: break-word;
+            display: flex;
+            gap: 16px;
         }
-        
-        .remote-message {
-            background: white;
-            border: 1px solid #eee;
-            margin-right: auto;
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            flex-shrink: 0;
         }
-        
-        .local-message {
-            background: var(--accent);
+
+        .message-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .username {
+            font-weight: 500;
+        }
+
+        .timestamp {
+            color: var(--gray);
+            font-size: 0.75rem;
+        }
+
+        .message-text {
+            line-height: 1.4;
+        }
+
+        /* Input area */
+        .input-area {
+            padding: 16px;
+            background-color: var(--darker);
+        }
+
+        .message-input {
+            width: 100%;
+            padding: 12px 16px;
+            background-color: rgba(0,0,0,0.2);
+            border: none;
+            border-radius: 8px;
+            color: var(--light);
+            font-size: 1rem;
+            outline: none;
+        }
+
+        /* Members sidebar */
+        .members {
+            width: 240px;
+            background-color: var(--darker);
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .member {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+        }
+
+        .member-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        /* Voice chat UI */
+        .voice-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--darker);
+            padding: 12px 24px;
+            border-radius: 8px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .voice-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--danger);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .voice-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .voice-btn.muted {
+            background-color: var(--gray);
+        }
+
+        /* Modals */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background-color: var(--darker);
+            padding: 24px;
+            border-radius: 8px;
+            width: 400px;
+            max-width: 90%;
+        }
+
+        .modal-title {
+            margin-bottom: 16px;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 12px 16px;
+            background-color: rgba(0,0,0,0.2);
+            border: none;
+            border-radius: 4px;
+            color: var(--light);
+            margin-bottom: 16px;
+            outline: none;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .modal-btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .modal-btn.primary {
+            background-color: var(--primary);
             color: white;
-            margin-left: auto;
         }
-        
-        .system-message {
-            background: transparent;
-            color: #666;
-            text-align: center;
-            font-style: italic;
-            font-size: 0.8rem;
-            margin: 15px auto;
-            padding: 5px;
-        }
-        
-        .typing-indicator {
-            font-style: italic;
-            color: #666;
-            font-size: 0.8rem;
-            margin-bottom: 10px;
+
+        .modal-btn.secondary {
+            background-color: transparent;
+            color: var(--gray);
         }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-header">
-            <h1>SparkChat</h1>
-            <div class="peer-info">
-                Your ID: <span id="peer-id">Connecting...</span>
+    <!-- Servers sidebar -->
+    <div class="servers">
+        <div class="server-icon">+</div>
+        <div class="server-icon">D</div>
+        <div class="server-icon active">G</div>
+    </div>
+
+    <!-- Channels sidebar -->
+    <div class="channels">
+        <div class="channel-header">
+            <span>General</span>
+            <span>+</span>
+        </div>
+        <div class="channel-list">
+            <div class="channel active"># text-chat</div>
+            <div class="channel"># voice-chat</div>
+            <div class="channel"># announcements</div>
+        </div>
+    </div>
+
+    <!-- Main chat area -->
+    <div class="chat">
+        <div class="messages" id="messages">
+            <!-- Messages will be added here -->
+        </div>
+        <div class="input-area">
+            <input type="text" class="message-input" id="message-input" placeholder="Message #text-chat">
+        </div>
+    </div>
+
+    <!-- Members sidebar -->
+    <div class="members">
+        <div class="member">
+            <div class="member-avatar">JD</div>
+            <span>John Doe</span>
+        </div>
+        <div class="member">
+            <div class="member-avatar">AS</div>
+            <span>Alice Smith</span>
+        </div>
+    </div>
+
+    <!-- Voice controls -->
+    <div class="voice-controls" id="voice-controls" style="display: none;">
+        <div class="voice-btn" id="mute-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="8" y1="23" x2="16" y2="23"></line>
+            </svg>
+        </div>
+        <div class="voice-btn" id="leave-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"></path>
+                <path d="M16 17l5-5-5-5"></path>
+                <line x1="21" y1="12" x2="10" y2="12"></line>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Username modal -->
+    <div class="modal" id="username-modal">
+        <div class="modal-content">
+            <div class="modal-title">Enter Your Username</div>
+            <input type="text" class="modal-input" id="username-input" placeholder="Username">
+            <div class="modal-buttons">
+                <button class="modal-btn secondary" id="cancel-username">Cancel</button>
+                <button class="modal-btn primary" id="save-username">Continue</button>
             </div>
         </div>
-        
-        <div class="chat-body">
-            <div class="connection-panel">
-                <div class="input-group">
-                    <label for="remote-id">Connect to peer:</label>
-                    <input type="text" id="remote-id" placeholder="Enter peer ID">
-                </div>
-                <button id="connect">Connect</button>
+    </div>
+
+    <!-- Group modal -->
+    <div class="modal" id="group-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-title">Create or Join Group</div>
+            <input type="text" class="modal-input" id="group-id-input" placeholder="Group ID">
+            <div class="modal-buttons">
+                <button class="modal-btn secondary" id="cancel-group">Cancel</button>
+                <button class="modal-btn primary" id="join-group">Join</button>
+                <button class="modal-btn primary" id="create-group">Create</button>
             </div>
-            
-            <div class="chat-messages" id="chat">
-                <div class="system-message">Welcome to SparkChat! Share your ID to start chatting.</div>
-            </div>
-            
-            <div class="input-group">
-                <input type="text" id="message" placeholder="Type your message..." disabled>
-            </div>
-            <button id="send" disabled>Send Message</button>
         </div>
     </div>
 
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
-    <script src="app.js"></script>
+    <script>
+        // App state
+        const state = {
+            username: '',
+            currentGroup: null,
+            peer: null,
+            connections: [],
+            localStream: null,
+            audioContext: null,
+            voiceConnections: {}
+        };
+
+        // DOM elements
+        const elements = {
+            messages: document.getElementById('messages'),
+            messageInput: document.getElementById('message-input'),
+            voiceControls: document.getElementById('voice-controls'),
+            muteBtn: document.getElementById('mute-btn'),
+            leaveBtn: document.getElementById('leave-btn'),
+            usernameModal: document.getElementById('username-modal'),
+            usernameInput: document.getElementById('username-input'),
+            saveUsername: document.getElementById('save-username'),
+            cancelUsername: document.getElementById('cancel-username'),
+            groupModal: document.getElementById('group-modal'),
+            groupIdInput: document.getElementById('group-id-input'),
+            joinGroup: document.getElementById('join-group'),
+            createGroup: document.getElementById('create-group'),
+            cancelGroup: document.getElementById('cancel-group')
+        };
+
+        // Initialize PeerJS
+        function initPeer() {
+            state.peer = new Peer({
+                host: '0.peerjs.com',
+                port: 443,
+                path: '/',
+                debug: 3
+            });
+
+            state.peer.on('open', (id) => {
+                console.log('Peer connected with ID:', id);
+                showGroupModal();
+            });
+
+            state.peer.on('connection', (conn) => {
+                setupConnection(conn);
+            });
+
+            state.peer.on('error', (err) => {
+                console.error('Peer error:', err);
+            });
+        }
+
+        // Setup data connection
+        function setupConnection(conn) {
+            state.connections.push(conn);
+
+            conn.on('open', () => {
+                // Send username to peer
+                conn.send({
+                    type: 'user-join',
+                    username: state.username
+                });
+
+                // Notify local user
+                addMessage(`${conn.metadata.username} joined the group`, 'system');
+            });
+
+            conn.on('data', (data) => {
+                handleIncomingData(conn, data);
+            });
+
+            conn.on('close', () => {
+                addMessage(`${conn.metadata.username} left the group`, 'system');
+                state.connections = state.connections.filter(c => c !== conn);
+            });
+
+            conn.on('error', (err) => {
+                console.error('Connection error:', err);
+            });
+        }
+
+        // Handle incoming data
+        function handleIncomingData(conn, data) {
+            switch (data.type) {
+                case 'user-join':
+                    addMessage(`${data.username} joined the group`, 'system');
+                    break;
+                case 'message':
+                    addMessage(data.text, 'remote', data.username);
+                    break;
+                case 'voice-offer':
+                    handleVoiceOffer(conn, data);
+                    break;
+                case 'voice-answer':
+                    handleVoiceAnswer(conn, data);
+                    break;
+                case 'voice-candidate':
+                    handleVoiceCandidate(conn, data);
+                    break;
+            }
+        }
+
+        // Voice chat functions
+        async function initVoiceChat() {
+            try {
+                state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                elements.voiceControls.style.display = 'flex';
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+            }
+        }
+
+        async function handleVoiceOffer(conn, data) {
+            if (!state.localStream) await initVoiceChat();
+            
+            const peerConnection = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+
+            state.voiceConnections[conn.peer] = peerConnection;
+
+            // Add local stream
+            state.localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, state.localStream);
+            });
+
+            // Handle ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    conn.send({
+                        type: 'voice-candidate',
+                        candidate: event.candidate
+                    });
+                }
+            };
+
+            // Handle remote stream
+            peerConnection.ontrack = (event) => {
+                const audio = new Audio();
+                audio.srcObject = event.streams[0];
+                audio.play();
+            };
+
+            // Set remote description and create answer
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            conn.send({
+                type: 'voice-answer',
+                answer: answer
+            });
+        }
+
+        async function handleVoiceAnswer(conn, data) {
+            const peerConnection = state.voiceConnections[conn.peer];
+            if (!peerConnection) return;
+            
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        }
+
+        async function handleVoiceCandidate(conn, data) {
+            const peerConnection = state.voiceConnections[conn.peer];
+            if (!peerConnection) return;
+            
+            try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            } catch (err) {
+                console.error('Error adding ICE candidate:', err);
+            }
+        }
+
+        // UI functions
+        function addMessage(text, type = 'local', username = state.username) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message';
+            
+            if (type === 'system') {
+                messageElement.innerHTML = `
+                    <div class="system-message">${text}</div>
+                `;
+            } else {
+                const avatarText = username.substring(0, 2).toUpperCase();
+                messageElement.innerHTML = `
+                    <div class="avatar">${avatarText}</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="username">${username}</span>
+                            <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+                        </div>
+                        <div class="message-text">${text}</div>
+                    </div>
+                `;
+                
+                if (type === 'local') {
+                    messageElement.querySelector('.avatar').style.backgroundColor = '#ED4245';
+                }
+            }
+            
+            elements.messages.appendChild(messageElement);
+            elements.messages.scrollTop = elements.messages.scrollHeight;
+        }
+
+        function showUsernameModal() {
+            elements.usernameModal.style.display = 'flex';
+        }
+
+        function hideUsernameModal() {
+            elements.usernameModal.style.display = 'none';
+        }
+
+        function showGroupModal() {
+            elements.groupModal.style.display = 'flex';
+        }
+
+        function hideGroupModal() {
+            elements.groupModal.style.display = 'none';
+        }
+
+        // Event listeners
+        elements.saveUsername.addEventListener('click', () => {
+            const username = elements.usernameInput.value.trim();
+            if (username) {
+                state.username = username;
+                hideUsernameModal();
+                initPeer();
+            }
+        });
+
+        elements.cancelUsername.addEventListener('click', hideUsernameModal);
+
+        elements.joinGroup.addEventListener('click', () => {
+            const groupId = elements.groupIdInput.value.trim();
+            if (groupId) {
+                state.currentGroup = groupId;
+                hideGroupModal();
+                
+                // Connect to group host
+                const conn = state.peer.connect(groupId, {
+                    metadata: {
+                        username: state.username
+                    }
+                });
+                
+                setupConnection(conn);
+                addMessage(`Joined group ${groupId}`, 'system');
+            }
+        });
+
+        elements.createGroup.addEventListener('click', () => {
+            state.currentGroup = state.peer.id;
+            hideGroupModal();
+            addMessage(`Created group ${state.peer.id}`, 'system');
+            addMessage('Share this ID with others to join:', 'system');
+            addMessage(state.peer.id, 'system');
+        });
+
+        elements.cancelGroup.addEventListener('click', hideGroupModal);
+
+        elements.messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && elements.messageInput.value.trim()) {
+                const message = elements.messageInput.value.trim();
+                addMessage(message, 'local');
+                
+                // Send to all connections
+                state.connections.forEach(conn => {
+                    conn.send({
+                        type: 'message',
+                        text: message
+                    });
+                });
+                
+                elements.messageInput.value = '';
+            }
+        });
+
+        elements.muteBtn.addEventListener('click', () => {
+            if (state.localStream) {
+                const audioTracks = state.localStream.getAudioTracks();
+                audioTracks.forEach(track => {
+                    track.enabled = !track.enabled;
+                });
+                elements.muteBtn.classList.toggle('muted');
+            }
+        });
+
+        elements.leaveBtn.addEventListener('click', () => {
+            if (state.localStream) {
+                state.localStream.getTracks().forEach(track => track.stop());
+                state.localStream = null;
+            }
+            elements.voiceControls.style.display = 'none';
+        });
+
+        // Initialize
+        showUsernameModal();
+    </script>
 </body>
 </html>
