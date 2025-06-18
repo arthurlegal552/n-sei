@@ -372,16 +372,7 @@
 
     <!-- Members sidebar -->
     <div class="members" id="members-list">
-        <div class="member">
-            <div class="member-avatar">JD</div>
-            <span>John Doe</span>
-            <div class="member-voice"></div>
-        </div>
-        <div class="member">
-            <div class="member-avatar">AS</div>
-            <span>Alice Smith</span>
-            <div class="member-voice"></div>
-        </div>
+        <!-- Members will be added dynamically -->
     </div>
 
     <!-- Voice controls -->
@@ -445,10 +436,7 @@
             audioContext: null,
             voiceConnections: {},
             currentChannel: 'text',
-            members: [
-                { id: '1', username: 'John Doe', inVoice: false },
-                { id: '2', username: 'Alice Smith', inVoice: false }
-            ]
+            members: [] // Empty members array - no bots by default
         };
 
         // DOM elements
@@ -484,6 +472,9 @@
             state.peer.on('open', (id) => {
                 console.log('Peer connected with ID:', id);
                 showGroupModal();
+                
+                // Add yourself to members list
+                addMember(state.username, state.peer.id);
             });
 
             state.peer.on('connection', (conn) => {
@@ -844,9 +835,6 @@
                 state.username = username;
                 hideUsernameModal();
                 initPeer();
-                
-                // Add yourself to members list
-                addMember(username, state.peer?.id || 'local');
             }
         });
 
