@@ -3,91 +3,202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PeerJS Chat</title>
+    <title>SparkChat - PeerJS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --accent: #4895ef;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        #login, #chat-ui {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        #login {
-            text-align: center;
-        }
-        #chat-ui {
-            display: none;
-        }
-        #chat {
-            height: 300px;
-            border: 1px solid #ddd;
-            padding: 10px;
-            overflow-y: auto;
-            margin-bottom: 10px;
-            background: #fafafa;
-        }
-        input, button {
-            padding: 10px;
-            width: 100%;
-            margin: 5px 0;
+        
+        * {
+            margin: 0;
+            padding: 0;
             box-sizing: border-box;
         }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .chat-container {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .chat-header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .peer-info {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px;
+            border-radius: var(--border-radius);
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .chat-body {
+            padding: 20px;
+        }
+        
+        .connection-panel {
+            background: var(--light);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--dark);
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            font-family: 'Poppins', sans-serif;
+            transition: all 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+        
         button {
-            background: #4CAF50;
+            background: var(--primary);
             color: white;
             border: none;
+            padding: 12px 20px;
+            border-radius: var(--border-radius);
+            font-family: 'Poppins', sans-serif;
+            font-weight: 500;
             cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
         }
+        
         button:hover {
-            background: #45a049;
+            background: var(--secondary);
+            transform: translateY(-2px);
         }
+        
         button:disabled {
-            background: #cccccc;
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
         }
+        
+        .chat-messages {
+            height: 300px;
+            border: 1px solid #eee;
+            border-radius: var(--border-radius);
+            padding: 15px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            background: var(--light);
+        }
+        
         .message {
-            margin: 5px 0;
-            padding: 8px;
-            border-radius: 4px;
-            background: #e9f7ef;
-        }
-        .message.you {
-            background: #d4edda;
-            text-align: right;
-        }
-        .message.system {
-            background: #f8f9fa;
-            color: #6c757d;
-            font-style: italic;
-        }
-        #users {
             margin-bottom: 10px;
-            font-weight: bold;
+            padding: 10px 15px;
+            border-radius: var(--border-radius);
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        
+        .remote-message {
+            background: white;
+            border: 1px solid #eee;
+            margin-right: auto;
+        }
+        
+        .local-message {
+            background: var(--accent);
+            color: white;
+            margin-left: auto;
+        }
+        
+        .system-message {
+            background: transparent;
+            color: #666;
+            text-align: center;
+            font-style: italic;
+            font-size: 0.8rem;
+            margin: 15px auto;
+            padding: 5px;
+        }
+        
+        .typing-indicator {
+            font-style: italic;
+            color: #666;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
-    <!-- Login Screen -->
-    <div id="login">
-        <h1>PeerJS Chat</h1>
-        <input id="username" placeholder="Enter your username" maxlength="20">
-        <button id="join">Join Chat</button>
-    </div>
-
-    <!-- Chat UI (hidden until login) -->
-    <div id="chat-ui">
-        <h2>Chat as <span id="display-username"></span></h2>
-        <div id="users">Online: Just you</div>
-        <div id="chat"></div>
-        <input id="remote-id" placeholder="Enter friend's 4-digit code">
-        <button id="connect">Connect</button>
-        <input id="message" placeholder="Type a message..." disabled>
-        <button id="send" disabled>Send</button>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>SparkChat</h1>
+            <div class="peer-info">
+                Your ID: <span id="peer-id">Connecting...</span>
+            </div>
+        </div>
+        
+        <div class="chat-body">
+            <div class="connection-panel">
+                <div class="input-group">
+                    <label for="remote-id">Connect to peer:</label>
+                    <input type="text" id="remote-id" placeholder="Enter peer ID">
+                </div>
+                <button id="connect">Connect</button>
+            </div>
+            
+            <div class="chat-messages" id="chat">
+                <div class="system-message">Welcome to SparkChat! Share your ID to start chatting.</div>
+            </div>
+            
+            <div class="input-group">
+                <input type="text" id="message" placeholder="Type your message..." disabled>
+            </div>
+            <button id="send" disabled>Send Message</button>
+        </div>
     </div>
 
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
