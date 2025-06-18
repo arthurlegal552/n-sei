@@ -1,78 +1,99 @@
-// Initialize Peer
-const peer = new Peer({
-    host: '0.peerjs.com',
-    port: 443,
-    path: '/',
-    debug: 3
-});
-
+// Simplified PeerJS Chat with usernames and short codes
+const peer = new Peer();
 let conn = null;
+let username = '';
+let shortCode = '';
 
-// When peer is open (ready)
-peer.on('open', (id) => {
-    document.getElementById('peer-id').textContent = id;
+// DOM elements
+const loginUI = document.getElementById('login');
+const chatUI = document.getElementById('chat-ui');
+const joinBtn = document.getElementById('join');
+const connectBtn = document.getElementById('connect');
+const sendBtn = document.getElementById('send');
+
+// Join chat with username
+joinBtn.addEventListener('click', () => {
+    username = document.getElementById('username').value.trim();
+    if (!username) return alert('Please enter a username');
+    
+    peer.on('open', (id) => {
+        // Generate 4-digit code from first part of peer ID
+        shortCode = id.substring(0, 4);
+        
+        document.getElementById('display-username').textContent = username;
+        document.getElementById('your-code').textContent = shortCode;
+        loginUI.classList.add('hidden');
+        chatUI.classList.remove('hidden');
+    });
 });
 
-// Handle connection
-peer.on('connection', (connection) => {
-    if (conn) {
-        connection.close();
-        return;
-    }
+// Connect to another peer
+connectBtn.addEventListener('click', () => {
+    const remoteCode = document.getElementById('remote-code').value.trim();
+    if (!remoteCode || remoteCode.length !== 4) return alert('Enter a 4-digit code');
     
-    conn = connection;
-    setupConnection();
-});
-
-// Connect button
-document.getElementById('connect').addEventListener('click', () => {
-    const remoteId = document.getElementById('remote-id').value.trim();
-    if (!remoteId) return;
+    // In a real app, you'd need a server to map short codes to full peer IDs
+    // For this demo, we'll assume the remote peer has the same prefix
+    const remoteId = remoteCode + peer.id.substring(4);
     
-    if (conn) {
-        conn.close();
-    }
-    
+    if (conn) conn.close();
     conn = peer.connect(remoteId);
-    setupConnection();
-});
-
-// Send button
-document.getElementById('send').addEventListener('click', () => {
-    const message = document.getElementById('message').value.trim();
-    if (!message || !conn) return;
     
-    conn.send(message);
-    appendMessage('You: ' + message);
-    document.getElementById('message').value = '';
-});
-
-// Setup connection handlers
-function setupConnection() {
     conn.on('open', () => {
-        appendMessage('Connected to ' + conn.peer);
+        conn.send({ type: 'username', value: username });
+        addMessage(`Connected to ${remoteCode}`);
     });
     
     conn.on('data', (data) => {
-        appendMessage(conn.peer + ': ' + data);
+        if (data.type === 'username') {
+            addMessage(`${data.value} joined the chat`);
+        } else {
+            addMessage(`${data.sender}: ${data.text}`);
+        }
     });
     
-    conn.on('close', () => {
-        appendMessage('Connection closed');
-        conn = null;
-    });
+    conn.on('close', () => addMessage('Connection closed'));
+});
+
+// Send message
+sendBtn.addEventListener('click', sendMessage);
+document.getElementById('message').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+});
+
+function sendMessage() {
+    const msgInput = document.getElementById('message');
+    const text = msgInput.value.trim();
+    if (!text || !conn) return;
     
-    conn.on('error', (err) => {
-        console.error(err);
-        appendMessage('Connection error: ' + err);
+    conn.send({ 
+        type: 'message', 
+        text: text, 
+        sender: username 
     });
+    addMessage(`You: ${text}`);
+    msgInput.value = '';
 }
 
-// Helper function to append messages to chat
-function appendMessage(message) {
+function addMessage(msg) {
     const chat = document.getElementById('chat');
-    const messageElement = document.createElement('div');
-    messageElement.textContent = message;
-    chat.appendChild(messageElement);
+    const div = document.createElement('div');
+    div.textContent = msg;
+    chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
 }
+
+// Handle incoming connections
+peer.on('connection', (connection) => {
+    if (conn) return connection.close();
+    
+    conn = connection;
+    conn.on('data', (data) => {
+        if (data.type === 'username') {
+            addMessage(`${data.value} joined the chat`);
+        } else {
+            addMessage(`${data.sender}: ${data.text}`);
+        }
+    });
+    conn.send({ type: 'username', value: username });
+});

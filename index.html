@@ -1,29 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PeerJS Chat</title>
+    <title>Simple Peer Chat</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
-        #chat { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; margin-bottom: 10px; }
-        #message { width: 70%; padding: 8px; }
-        button { padding: 8px 15px; }
-        #peer-id { font-weight: bold; }
+        body { font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; }
+        #chat { height: 300px; border: 1px solid #ddd; padding: 10px; overflow-y: scroll; margin: 10px 0; }
+        input, button { padding: 8px; margin: 5px 0; }
+        button { cursor: pointer; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-    <h1>PeerJS Chat</h1>
-    <div>
-        Your ID: <span id="peer-id">Generating...</span>
+    <div id="login">
+        <h2>Join Chat</h2>
+        <input id="username" placeholder="Your username" maxlength="20">
+        <button id="join">Join</button>
     </div>
-    <div>
-        Connect to: <input type="text" id="remote-id" placeholder="Peer ID">
+
+    <div id="chat-ui" class="hidden">
+        <h2>Chat as <span id="display-username"></span></h2>
+        <div>Your code: <strong id="your-code"></strong></div>
+        <div id="chat"></div>
+        <input id="remote-code" placeholder="Enter 4-digit code">
         <button id="connect">Connect</button>
+        <input id="message" placeholder="Type message">
+        <button id="send">Send</button>
     </div>
-    <div id="chat"></div>
-    <input type="text" id="message" placeholder="Type your message">
-    <button id="send">Send</button>
 
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="app.js"></script>
