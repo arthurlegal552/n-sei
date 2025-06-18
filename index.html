@@ -478,6 +478,7 @@
                 console.log('Peer connected with ID:', id);
                 // Add yourself to members list
                 addMember(state.username, state.peer.id);
+                state.peerUsernames[state.peer.id] = state.username;
             });
 
             state.peer.on('connection', (conn) => {
@@ -502,7 +503,7 @@
                 });
 
                 // Store the peer's username from their metadata
-                if (conn.metadata.username) {
+                if (conn.metadata && conn.metadata.username) {
                     state.peerUsernames[conn.peer] = conn.metadata.username;
                     addMessage(`${conn.metadata.username} joined the group`, 'system');
                     addMember(conn.metadata.username, conn.peer);
