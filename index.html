@@ -171,12 +171,15 @@
 
         /* Input area */
         .input-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             padding: 16px;
             background-color: var(--darker);
         }
 
         .message-input {
-            width: 100%;
+            flex: 1;
             padding: 12px 16px;
             background-color: rgba(0,0,0,0.2);
             border: none;
@@ -370,6 +373,15 @@
         </div>
         <div class="input-area">
             <input type="text" class="message-input" id="message-input" placeholder="Message #text-chat">
+            <input type="file" id="file-input" accept="image/*,.gif" style="display: none;">
+            <button id="attach-button" style="background: none; border: none; color: var(--gray); cursor: pointer;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    <circle cx="9" cy="9" r="1"></circle>
+                    <circle cx="15" cy="9" r="1"></circle>
+                    <line x1="9" y1="15" x2="15" y2="15"></line>
+                </svg>
+            </button>
         </div>
     </div>
 
@@ -462,7 +474,9 @@
             membersList: document.getElementById('members-list'),
             voiceIndicator: document.getElementById('voice-indicator'),
             channels: document.querySelectorAll('.channel'),
-            groupManagementBtn: document.getElementById('group-management-btn')
+            groupManagementBtn: document.getElementById('group-management-btn'),
+            attachButton: document.getElementById('attach-button'),
+            fileInput: document.getElementById('file-input')
         };
 
         // Initialize PeerJS
@@ -543,6 +557,13 @@
                         addMessage(data.text, 'remote', senderUsername);
                     }
                     break;
+                case 'image':
+                    if (data.channel === state.currentChannel) {
+                        // Get the correct username from our mapping
+                        const senderUsername = state.peerUsernames[data.userId] || data.userId;
+                        displayImage(data.dataUrl, 'remote', senderUsername);
+                    }
+                    break;
                 case 'voice-offer':
                     handleVoiceOffer(conn, data);
                     break;
@@ -556,6 +577,77 @@
                     updateMemberVoiceState(data.userId, data.inVoice);
                     break;
             }
+        }
+
+        // Handle file upload
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Check if file is an image or GIF
+            if (!file.type.match('image.*')) {
+                addMessage('Only images and GIFs are supported', 'system');
+                return;
+            }
+
+            // Check file size (limit to 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                addMessage('File size too large (max 5MB)', 'system');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const dataUrl = e.target.result;
+                sendImage(dataUrl, file.type);
+                
+                // Display locally
+                displayImage(dataUrl, 'local');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function sendImage(dataUrl, mimeType) {
+            // Send to all connections
+            state.connections.forEach(conn => {
+                conn.send({
+                    type: 'image',
+                    dataUrl: dataUrl,
+                    mimeType: mimeType,
+                    channel: state.currentChannel,
+                    username: state.username,
+                    userId: state.peer.id
+                });
+            });
+        }
+
+        function displayImage(dataUrl, type, username = state.username) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message';
+            
+            const avatarText = username.substring(0, 2).toUpperCase();
+            messageElement.innerHTML = `
+                <div class="avatar">${avatarText}</div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <span class="username">${username}</span>
+                        <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+                    </div>
+                    <div class="message-media">
+                        <img src="${dataUrl}" style="max-width: 100%; max-height: 300px; border-radius: 4px;">
+                    </div>
+                </div>
+            `;
+            
+            if (type === 'local') {
+                messageElement.querySelector('.avatar').style.backgroundColor = '#ED4245';
+            }
+            
+            elements.messages.appendChild(messageElement);
+            elements.messages.scrollTop = elements.messages.scrollHeight;
+            
+            // Clear the file input
+            elements.fileInput.value = '';
         }
 
         // Voice chat functions
@@ -897,6 +989,12 @@
                 elements.messageInput.value = '';
             }
         });
+
+        elements.attachButton.addEventListener('click', () => {
+            elements.fileInput.click();
+        });
+
+        elements.fileInput.addEventListener('change', handleFileUpload);
 
         elements.muteBtn.addEventListener('click', () => {
             if (state.localStream) {
