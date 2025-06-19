@@ -3,9 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatX</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <title>Discord-Style Chat with Groups & GIFs</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
         :root {
             --primary: #5865F2;
             --dark: #2C2F33;
@@ -14,93 +22,167 @@
             --gray: #99AAB5;
             --success: #3BA55C;
             --danger: #ED4245;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Roboto', sans-serif;
+            --background: #36393F;
+            --text-light: #B9BBBE;
+            --hover: #3a3d45;
+            --accent: #9b59b6;
         }
 
         body {
             display: flex;
             height: 100vh;
-            background-color: var(--dark);
+            background: linear-gradient(135deg, #1a1d21, #0f1114);
             color: var(--light);
+            overflow: hidden;
         }
 
-        /* Server/Group sidebar */
+        /* Servers sidebar */
         .servers {
-            width: 72px;
-            background-color: var(--darker);
-            padding: 12px 0;
+            width: 80px;
+            background-color: rgba(25, 27, 31, 0.8);
+            padding: 20px 0;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 8px;
+            gap: 15px;
+            overflow-y: auto;
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(5px);
         }
 
         .server-icon {
-            width: 48px;
-            height: 48px;
+            width: 55px;
+            height: 55px;
             border-radius: 50%;
-            background-color: var(--gray);
+            background: linear-gradient(135deg, var(--primary), var(--accent));
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s ease;
+            color: white;
+            font-weight: bold;
+            font-size: 22px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
         }
 
         .server-icon:hover {
-            border-radius: 16px;
-            background-color: var(--primary);
+            border-radius: 18px;
+            transform: translateY(-3px);
         }
 
         .server-icon.active {
-            background-color: var(--primary);
-            border-radius: 16px;
+            border-radius: 18px;
+            box-shadow: 0 0 0 3px var(--light);
+        }
+
+        .server-icon::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, transparent, rgba(255,255,255,0.1));
+            opacity: 0.3;
+        }
+
+        .server-icon.add {
+            background: rgba(255, 255, 255, 0.1);
+            font-size: 28px;
         }
 
         /* Channels sidebar */
         .channels {
             width: 240px;
-            background-color: var(--darker);
+            background-color: rgba(30, 33, 36, 0.85);
             display: flex;
             flex-direction: column;
+            color: var(--text-light);
+            border-right: 1px solid rgba(0,0,0,0.2);
+            backdrop-filter: blur(5px);
         }
 
         .channel-header {
-            padding: 16px;
-            border-bottom: 1px solid rgba(0,0,0,0.2);
+            padding: 18px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
             font-weight: 700;
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            color: white;
+            font-size: 18px;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .channel-header i {
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 18px;
+        }
+
+        .channel-header i:hover {
+            color: var(--primary);
+            transform: rotate(15deg);
+        }
+
+        .channel-category {
+            padding: 12px 16px;
+            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            letter-spacing: 1px;
+        }
+
+        .channel-category i {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .channel-category i:hover {
+            color: var(--primary);
         }
 
         .channel-list {
             flex: 1;
             overflow-y: auto;
-            padding: 8px 0;
+            padding: 10px 0;
         }
 
         .channel {
-            padding: 8px 16px;
+            padding: 10px 16px;
             margin: 0 8px;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            color: var(--text-light);
+            transition: all 0.2s;
         }
 
         .channel:hover {
-            background-color: rgba(255,255,255,0.1);
+            background-color: var(--hover);
+            color: white;
+            transform: translateX(5px);
         }
 
         .channel.active {
-            background-color: rgba(255,255,255,0.2);
+            background-color: rgba(88, 101, 242, 0.3);
+            color: white;
+        }
+
+        .channel i {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
         }
 
         /* Main chat area */
@@ -108,143 +190,175 @@
             flex: 1;
             display: flex;
             flex-direction: column;
+            position: relative;
+        }
+
+        .chat-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            background: rgba(0,0,0,0.2);
+            backdrop-filter: blur(5px);
+            z-index: 10;
+        }
+
+        .chat-header i {
+            color: var(--text-light);
+            font-size: 20px;
+        }
+
+        .chat-header h2 {
+            font-weight: 500;
+            font-size: 18px;
         }
 
         .messages {
             flex: 1;
-            padding: 20px;
+            padding: 25px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 20px;
+            background: url('https://www.transparenttextures.com/patterns/dark-geometric.png');
         }
 
         .message {
             display: flex;
             gap: 16px;
+            animation: fadeIn 0.4s ease-out;
         }
 
         .avatar {
-            width: 40px;
-            height: 40px;
+            width: 46px;
+            height: 46px;
             border-radius: 50%;
-            background-color: var(--primary);
+            background: linear-gradient(135deg, var(--primary), var(--accent));
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
             flex-shrink: 0;
+            color: white;
+            font-size: 18px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         }
 
         .message-content {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 6px;
+            max-width: 70%;
         }
 
         .message-header {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
 
         .username {
-            font-weight: 500;
+            font-weight: 600;
+            color: white;
+            font-size: 16px;
         }
 
         .timestamp {
-            color: var(--gray);
-            font-size: 0.75rem;
+            color: var(--text-light);
+            font-size: 0.8rem;
         }
 
         .message-text {
-            line-height: 1.4;
+            line-height: 1.5;
+            color: #dcddde;
+            font-size: 15px;
+        }
+
+        .gif-message {
+            max-width: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .gif-message img {
+            width: 100%;
+            display: block;
         }
 
         .system-message {
-            color: var(--gray);
+            color: var(--text-light);
             font-size: 0.9rem;
             width: 100%;
             text-align: center;
-            padding: 8px 0;
+            padding: 10px 0;
+            font-style: italic;
         }
 
         /* Input area */
         .input-area {
-            padding: 16px;
-            background-color: var(--darker);
+            padding: 20px;
+            background-color: rgba(0,0,0,0.2);
+            backdrop-filter: blur(5px);
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .message-input-container {
+            background-color: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            padding: 0 18px;
+            position: relative;
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
         .message-input {
             width: 100%;
-            padding: 12px 16px;
-            background-color: rgba(0,0,0,0.2);
+            padding: 14px 0;
+            background: transparent;
             border: none;
-            border-radius: 8px;
             color: var(--light);
-            font-size: 1rem;
+            font-size: 16px;
             outline: none;
         }
 
-        /* Members sidebar */
-        .members {
-            width: 240px;
-            background-color: var(--darker);
-            padding: 16px;
-            overflow-y: auto;
+        .message-input-container i {
+            color: var(--text-light);
+            cursor: pointer;
+            padding: 0 10px;
+            transition: all 0.2s;
+            font-size: 18px;
         }
 
-        .member {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 0;
+        .message-input-container i:hover {
+            color: var(--primary);
+            transform: scale(1.1);
         }
 
-        .member-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background-color: var(--primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            font-weight: 700;
-        }
-
-        .member-voice {
-            margin-left: auto;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: var(--success);
-            display: none;
-        }
-
-        .member-voice.active {
-            display: block;
-        }
-
-        /* Voice chat UI */
+        /* Voice controls */
         .voice-controls {
             position: fixed;
-            bottom: 20px;
+            bottom: 25px;
             left: 50%;
             transform: translateX(-50%);
             background-color: var(--darker);
-            padding: 12px 24px;
-            border-radius: 8px;
+            padding: 15px 30px;
+            border-radius: 15px;
             display: flex;
-            gap: 16px;
+            gap: 20px;
             align-items: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            z-index: 10;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+            z-index: 100;
+            transition: all 0.4s ease;
         }
 
         .voice-btn {
-            width: 40px;
-            height: 40px;
+            width: 50px;
+            height: 50px;
             border-radius: 50%;
             background-color: var(--danger);
             display: flex;
@@ -252,14 +366,50 @@
             justify-content: center;
             cursor: pointer;
             transition: all 0.2s;
+            color: white;
+            font-size: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
 
         .voice-btn:hover {
             transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(237, 66, 69, 0.6);
         }
 
         .voice-btn.muted {
             background-color: var(--gray);
+        }
+
+        .voice-btn.connected {
+            background-color: var(--success);
+        }
+
+        .voice-status {
+            background-color: var(--hover);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .voice-indicator {
+            display: none;
+            position: fixed;
+            bottom: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--darker);
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 16px;
+            z-index: 100;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .voice-indicator.active {
+            display: block;
         }
 
         /* Modals */
@@ -273,46 +423,62 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 100;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
         }
 
         .modal-content {
             background-color: var(--darker);
-            padding: 24px;
-            border-radius: 8px;
-            width: 400px;
+            padding: 30px;
+            border-radius: 15px;
+            width: 450px;
             max-width: 90%;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
         .modal-title {
-            margin-bottom: 16px;
-            font-size: 1.25rem;
+            margin-bottom: 20px;
+            font-size: 24px;
             font-weight: 700;
+            text-align: center;
+            color: var(--primary);
         }
 
         .modal-input {
             width: 100%;
-            padding: 12px 16px;
-            background-color: rgba(0,0,0,0.2);
-            border: none;
-            border-radius: 4px;
+            padding: 14px 18px;
+            background-color: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
             color: var(--light);
-            margin-bottom: 16px;
+            margin-bottom: 20px;
             outline: none;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .modal-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.3);
         }
 
         .modal-buttons {
             display: flex;
-            justify-content: flex-end;
-            gap: 8px;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
         }
 
         .modal-btn {
-            padding: 8px 16px;
-            border-radius: 4px;
+            padding: 12px 30px;
+            border-radius: 8px;
             border: none;
             cursor: pointer;
-            font-weight: 500;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.2s;
+            min-width: 120px;
         }
 
         .modal-btn.primary {
@@ -320,228 +486,429 @@
             color: white;
         }
 
+        .modal-btn.primary:hover {
+            background-color: #4752c4;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(88, 101, 242, 0.4);
+        }
+
         .modal-btn.secondary {
             background-color: transparent;
-            color: var(--gray);
+            color: var(--text-light);
+            border: 1px solid var(--text-light);
         }
 
-        /* Voice channel indicator */
-        .voice-indicator {
-            display: none;
-            position: fixed;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: var(--darker);
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            z-index: 10;
+        .modal-btn.secondary:hover {
+            color: white;
+            border-color: white;
         }
 
-        .voice-indicator.active {
-            display: block;
-        }
-
-        /* Request modal */
-        .request-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
+        .code-display {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-family: monospace;
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            z-index: 200;
         }
-        
-        .request-content {
-            background-color: var(--darker);
-            padding: 24px;
-            border-radius: 8px;
+
+        .code-display span {
+            font-size: 18px;
+            letter-spacing: 2px;
+        }
+
+        .copy-btn {
+            background: var(--primary);
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* GIF Picker */
+        .gif-picker {
+            position: absolute;
+            bottom: 70px;
+            left: 50px;
             width: 350px;
-            max-width: 90%;
-        }
-        
-        .request-title {
-            margin-bottom: 16px;
-            font-size: 1.1rem;
-            font-weight: 500;
-        }
-        
-        .request-text {
-            margin-bottom: 20px;
-            line-height: 1.5;
-        }
-        
-        .request-buttons {
+            height: 400px;
+            background: var(--darker);
+            border-radius: 8px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            z-index: 100;
             display: flex;
-            justify-content: flex-end;
+            flex-direction: column;
+            overflow: hidden;
+            display: none;
+        }
+
+        .gif-header {
+            padding: 12px 16px;
+            background: var(--dark);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .gif-search {
+            padding: 8px 16px;
+            background: rgba(0,0,0,0.2);
+            border: none;
+            color: white;
+            border-radius: 4px;
+            width: 100%;
+            outline: none;
+        }
+
+        .gif-grid {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
             gap: 8px;
         }
-        
-        .request-btn {
-            padding: 8px 16px;
+
+        .gif-item {
             border-radius: 4px;
-            border: none;
+            overflow: hidden;
             cursor: pointer;
-            font-weight: 500;
+            height: 150px;
         }
-        
-        .request-btn.accept {
-            background-color: var(--success);
-            color: white;
+
+        .gif-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.2s;
         }
-        
-        .request-btn.decline {
-            background-color: var(--danger);
-            color: white;
+
+        .gif-item:hover img {
+            transform: scale(1.05);
+        }
+
+        .gif-close {
+            color: var(--text-light);
+            cursor: pointer;
+        }
+
+        .gif-close:hover {
+            color: var(--danger);
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #5865F2;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4752c4;
+        }
+
+        /* Responsive design */
+        @media (max-width: 900px) {
+            .servers {
+                width: 70px;
+            }
+            
+            .channels {
+                width: 200px;
+            }
+            
+            .gif-picker {
+                width: 300px;
+                left: 20px;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Servers sidebar - now just has group management button -->
-    <div class="servers">
-        <div class="server-icon" id="group-management-btn">+</div>
+    <!-- Servers sidebar -->
+    <div class="servers" id="servers">
+        <div class="server-icon add" id="add-group">
+            <i class="fas fa-plus"></i>
+        </div>
+        <!-- Groups will be added dynamically -->
     </div>
 
     <!-- Channels sidebar -->
-    <div class="channels">
+    <div class="channels" id="channels">
         <div class="channel-header">
-            <span>General</span>
-            <span>+</span>
+            <span id="group-name">No Group Selected</span>
+            <i class="fas fa-cog" id="group-settings"></i>
         </div>
-        <div class="channel-list">
-            <div class="channel active" data-channel="text"># text-chat</div>
-            <div class="channel" data-channel="voice"># voice-chat</div>
-            <div class="channel"># announcements</div>
+        <div class="channel-category">
+            <span>VOICE CHANNELS</span>
+            <i class="fas fa-plus" id="add-voice-channel"></i>
+        </div>
+        <div class="channel-list" id="voice-channels">
+            <!-- Voice channels will be added here -->
+        </div>
+        <div class="channel-category">
+            <span>TEXT CHANNELS</span>
+            <i class="fas fa-plus" id="add-text-channel"></i>
+        </div>
+        <div class="channel-list" id="text-channels">
+            <!-- Text channels will be added here -->
         </div>
     </div>
 
     <!-- Main chat area -->
     <div class="chat">
+        <div class="chat-header">
+            <i class="fas fa-hashtag"></i>
+            <h2 id="channel-name">general</h2>
+        </div>
         <div class="messages" id="messages">
-            <!-- Messages will be added here -->
+            <div class="system-message">Welcome! Create or join a group to start chatting.</div>
         </div>
         <div class="input-area">
-            <input type="text" class="message-input" id="message-input" placeholder="Message #text-chat">
+            <div class="message-input-container">
+                <i class="fas fa-plus-circle" id="gif-button"></i>
+                <input type="text" class="message-input" id="message-input" placeholder="Message #general" disabled>
+                <i class="fas fa-microphone" id="voice-chat-btn"></i>
+                
+                <!-- GIF Picker -->
+                <div class="gif-picker" id="gif-picker">
+                    <div class="gif-header">
+                        <h3>GIF Search</h3>
+                        <span class="gif-close" id="gif-close">&times;</span>
+                    </div>
+                    <input type="text" class="gif-search" id="gif-search" placeholder="Search GIFs...">
+                    <div class="gif-grid" id="gif-grid">
+                        <!-- GIFs will be loaded here -->
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
-
-    <!-- Members sidebar -->
-    <div class="members" id="members-list">
-        <!-- Members will be added dynamically -->
     </div>
 
     <!-- Voice controls -->
     <div class="voice-controls" id="voice-controls" style="display: none;">
-        <div class="voice-btn" id="mute-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                <line x1="12" y1="19" x2="12" y2="23"></line>
-                <line x1="8" y1="23" x2="16" y2="23"></line>
-            </svg>
+        <div class="voice-status">
+            <i class="fas fa-headphones"></i>
+            <span id="current-voice-channel">General Voice</span>
+        </div>
+        <div class="voice-btn connected" id="mute-btn">
+            <i class="fas fa-microphone"></i>
+        </div>
+        <div class="voice-btn" id="deafen-btn">
+            <i class="fas fa-headphones"></i>
         </div>
         <div class="voice-btn" id="leave-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M10 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"></path>
-                <path d="M16 17l5-5-5-5"></path>
-                <line x1="21" y1="12" x2="10" y2="12"></line>
-            </svg>
+            <i class="fas fa-phone-slash"></i>
         </div>
     </div>
 
     <!-- Voice channel indicator -->
     <div class="voice-indicator" id="voice-indicator">
+        <i class="fas fa-volume-up"></i>
         You're in a voice channel
     </div>
 
-    <!-- Username modal -->
-    <div class="modal" id="username-modal">
+    <!-- Group Creation Modal -->
+    <div class="modal" id="group-modal">
         <div class="modal-content">
-            <div class="modal-title">Enter Your Username</div>
-            <input type="text" class="modal-input" id="username-input" placeholder="Username">
-            <div class="modal-buttons">
-                <button class="modal-btn secondary" id="cancel-username">Cancel</button>
-                <button class="modal-btn primary" id="save-username">Continue</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Group modal -->
-    <div class="modal" id="group-modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-title">Create or Join Group</div>
-            <input type="text" class="modal-input" id="group-id-input" placeholder="Group ID">
+            <div class="modal-title">Create New Group</div>
+            <input type="text" class="modal-input" id="group-name-input" placeholder="Group Name">
             <div class="modal-buttons">
                 <button class="modal-btn secondary" id="cancel-group">Cancel</button>
-                <button class="modal-btn primary" id="join-group">Join</button>
                 <button class="modal-btn primary" id="create-group">Create</button>
             </div>
         </div>
     </div>
 
-    <!-- Voice Request Modal -->
-    <div class="request-modal" id="voice-request-modal" style="display: none;">
-        <div class="request-content">
-            <div class="request-title">Voice Chat Request</div>
-            <div class="request-text" id="voice-request-text">
-                User wants you to join voice chat. Accept to connect your microphone.
-            </div>
-            <div class="request-buttons">
-                <button class="request-btn decline" id="decline-voice">Decline</button>
-                <button class="request-btn accept" id="accept-voice">Accept</button>
+    <!-- Join Group Modal -->
+    <div class="modal" id="join-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-title">Join a Group</div>
+            <input type="text" class="modal-input" id="group-id-input" placeholder="Group Code">
+            <div class="modal-buttons">
+                <button class="modal-btn secondary" id="cancel-join">Cancel</button>
+                <button class="modal-btn primary" id="join-group">Join</button>
             </div>
         </div>
     </div>
 
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <!-- Group Code Modal -->
+    <div class="modal" id="code-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-title">Group Invite Code</div>
+            <div class="code-display">
+                <span id="group-code">ABCD-1234</span>
+                <button class="copy-btn" id="copy-code">Copy</button>
+            </div>
+            <p style="text-align: center; margin: 15px 0; color: var(--text-light);">
+                Share this code with others to join your group
+            </p>
+            <div class="modal-buttons">
+                <button class="modal-btn primary" id="close-code">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Username Modal -->
+    <div class="modal" id="username-modal" style="display: flex;">
+        <div class="modal-content">
+            <div class="modal-title">Set Your Username</div>
+            <input type="text" class="modal-input" id="username-input" placeholder="Enter your username">
+            <div class="modal-buttons">
+                <button class="modal-btn primary" id="save-username">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio elements for sound effects -->
+    <audio id="join-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-unlock-game-notification-253.mp3"></audio>
+    <audio id="leave-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-select-click-1109.mp3"></audio>
+    <audio id="message-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-happy-bells-notification-937.mp3"></audio>
+    <audio id="mute-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-modem-chat-connection-2591.mp3"></audio>
+    <audio id="unmute-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-modem-chat-connection-2591.mp3"></audio>
+    <audio id="channel-change-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3"></audio>
+    <audio id="copy-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-click-button-1109.mp3"></audio>
+
     <script>
         // App state
         const state = {
             username: '',
             currentGroup: null,
+            currentChannel: null,
             peer: null,
             connections: [],
             localStream: null,
-            audioContext: null,
             voiceConnections: {},
-            currentChannel: 'text',
-            members: [],
-            peerUsernames: {},
-            remoteAudioElements: {},
-            voiceRequestFrom: null,
-            pendingVoiceRequest: null
+            groups: [],
+            channels: [],
+            currentVoiceChannel: null,
+            isMuted: false
         };
 
         // DOM elements
         const elements = {
+            servers: document.getElementById('servers'),
+            channels: document.getElementById('channels'),
             messages: document.getElementById('messages'),
             messageInput: document.getElementById('message-input'),
             voiceControls: document.getElementById('voice-controls'),
             muteBtn: document.getElementById('mute-btn'),
             leaveBtn: document.getElementById('leave-btn'),
+            groupModal: document.getElementById('group-modal'),
+            groupNameInput: document.getElementById('group-name-input'),
+            createGroup: document.getElementById('create-group'),
+            cancelGroup: document.getElementById('cancel-group'),
+            joinModal: document.getElementById('join-modal'),
+            groupIdInput: document.getElementById('group-id-input'),
+            joinGroup: document.getElementById('join-group'),
+            cancelJoin: document.getElementById('cancel-join'),
+            addGroup: document.getElementById('add-group'),
+            groupName: document.getElementById('group-name'),
+            channelName: document.getElementById('channel-name'),
+            voiceChannels: document.getElementById('voice-channels'),
+            textChannels: document.getElementById('text-channels'),
+            voiceIndicator: document.getElementById('voice-indicator'),
+            currentVoiceChannel: document.getElementById('current-voice-channel'),
+            addVoiceChannel: document.getElementById('add-voice-channel'),
+            addTextChannel: document.getElementById('add-text-channel'),
+            groupSettings: document.getElementById('group-settings'),
+            voiceChatBtn: document.getElementById('voice-chat-btn'),
             usernameModal: document.getElementById('username-modal'),
             usernameInput: document.getElementById('username-input'),
             saveUsername: document.getElementById('save-username'),
-            cancelUsername: document.getElementById('cancel-username'),
-            groupModal: document.getElementById('group-modal'),
-            groupIdInput: document.getElementById('group-id-input'),
-            joinGroup: document.getElementById('join-group'),
-            createGroup: document.getElementById('create-group'),
-            cancelGroup: document.getElementById('cancel-group'),
-            membersList: document.getElementById('members-list'),
-            voiceIndicator: document.getElementById('voice-indicator'),
-            channels: document.querySelectorAll('.channel'),
-            groupManagementBtn: document.getElementById('group-management-btn'),
-            voiceRequestModal: document.getElementById('voice-request-modal'),
-            voiceRequestText: document.getElementById('voice-request-text'),
-            acceptVoice: document.getElementById('accept-voice'),
-            declineVoice: document.getElementById('decline-voice')
+            joinSound: document.getElementById('join-sound'),
+            leaveSound: document.getElementById('leave-sound'),
+            messageSound: document.getElementById('message-sound'),
+            muteSound: document.getElementById('mute-sound'),
+            unmuteSound: document.getElementById('unmute-sound'),
+            channelChangeSound: document.getElementById('channel-change-sound'),
+            copySound: document.getElementById('copy-sound'),
+            codeModal: document.getElementById('code-modal'),
+            groupCode: document.getElementById('group-code'),
+            copyCode: document.getElementById('copy-code'),
+            closeCode: document.getElementById('close-code'),
+            gifButton: document.getElementById('gif-button'),
+            gifPicker: document.getElementById('gif-picker'),
+            gifClose: document.getElementById('gif-close'),
+            gifSearch: document.getElementById('gif-search'),
+            gifGrid: document.getElementById('gif-grid')
         };
+
+        // Sample GIFs for demonstration
+        const sampleGIFs = [
+            {id: 'gif1', url: 'https://media.giphy.com/media/3o7aCTPPm4OHfRLSH6/giphy.gif'},
+            {id: 'gif2', url: 'https://media.giphy.com/media/l0HlOBZcl7sbV6LnO/giphy.gif'},
+            {id: 'gif3', url: 'https://media.giphy.com/media/3o7abAHdYv57BN4Gis/giphy.gif'},
+            {id: 'gif4', url: 'https://media.giphy.com/media/3o7TKwxYkeW0ZvTqsU/giphy.gif'},
+            {id: 'gif5', url: 'https://media.giphy.com/media/26tknCqiJrBQG6bxC/giphy.gif'},
+            {id: 'gif6', url: 'https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif'},
+            {id: 'gif7', url: 'https://media.giphy.com/media/l0HlHFRbmaZtBRhY4/giphy.gif'},
+            {id: 'gif8', url: 'https://media.giphy.com/media/l0HlNQ03J4Jp5PyV2/giphy.gif'},
+            {id: 'gif9', url: 'https://media.giphy.com/media/l0HlT2XhZvHh5Jfu8/giphy.gif'},
+            {id: 'gif10', url: 'https://media.giphy.com/media/3o7TKsQ8UQ4l4LhGz6/giphy.gif'},
+        ];
+
+        // Sound functions
+        function playJoinSound() {
+            elements.joinSound.currentTime = 0;
+            elements.joinSound.play();
+        }
+
+        function playLeaveSound() {
+            elements.leaveSound.currentTime = 0;
+            elements.leaveSound.play();
+        }
+
+        function playMessageSound() {
+            elements.messageSound.currentTime = 0;
+            elements.messageSound.play();
+        }
+
+        function playMuteSound() {
+            elements.muteSound.currentTime = 0;
+            elements.muteSound.play();
+        }
+
+        function playUnmuteSound() {
+            elements.unmuteSound.currentTime = 0;
+            elements.unmuteSound.play();
+        }
+
+        function playChannelChangeSound() {
+            elements.channelChangeSound.currentTime = 0;
+            elements.channelChangeSound.play();
+        }
+
+        function playCopySound() {
+            elements.copySound.currentTime = 0;
+            elements.copySound.play();
+        }
 
         // Initialize PeerJS
         function initPeer() {
@@ -554,389 +921,235 @@
 
             state.peer.on('open', (id) => {
                 console.log('Peer connected with ID:', id);
-                // Add yourself to members list
-                addMember(state.username, state.peer.id);
-                state.peerUsernames[state.peer.id] = state.username;
-            });
-
-            state.peer.on('connection', (conn) => {
-                setupConnection(conn);
+                addMessage(`Connected with ID: ${id}`, 'system');
             });
 
             state.peer.on('error', (err) => {
                 console.error('Peer error:', err);
+                addMessage(`Error: ${err}`, 'system');
             });
         }
 
-        // Setup data connection
-        function setupConnection(conn) {
-            state.connections.push(conn);
-
-            conn.on('open', () => {
-                // Send username to peer
-                conn.send({
-                    type: 'user-join',
-                    username: state.username,
-                    userId: state.peer.id
-                });
-
-                // Store the peer's username from their metadata
-                if (conn.metadata && conn.metadata.username) {
-                    state.peerUsernames[conn.peer] = conn.metadata.username;
-                    addMessage(`${conn.metadata.username} joined the group`, 'system');
-                    addMember(conn.metadata.username, conn.peer);
-                }
-            });
-
-            conn.on('data', (data) => {
-                handleIncomingData(conn, data);
-            });
-
-            conn.on('close', () => {
-                const username = state.peerUsernames[conn.peer] || conn.peer;
-                addMessage(`${username} left the group`, 'system');
-                state.connections = state.connections.filter(c => c !== conn);
-                removeMember(conn.peer);
-                delete state.peerUsernames[conn.peer];
-                
-                // Clean up voice connection if it exists
-                if (state.voiceConnections[conn.peer]) {
-                    state.voiceConnections[conn.peer].close();
-                    delete state.voiceConnections[conn.peer];
-                }
-                
-                // Clean up audio element if it exists
-                if (state.remoteAudioElements[conn.peer]) {
-                    state.remoteAudioElements[conn.peer].remove();
-                    delete state.remoteAudioElements[conn.peer];
-                }
-            });
-
-            conn.on('error', (err) => {
-                console.error('Connection error:', err);
-            });
-        }
-
-        // Handle incoming data
-        function handleIncomingData(conn, data) {
-            switch (data.type) {
-                case 'user-join':
-                    // Store the username with the peer ID
-                    state.peerUsernames[data.userId] = data.username;
-                    addMessage(`${data.username} joined the group`, 'system');
-                    addMember(data.username, data.userId);
-                    break;
-                case 'message':
-                    if (data.channel === state.currentChannel) {
-                        // Get the correct username from our mapping
-                        const senderUsername = state.peerUsernames[conn.peer] || conn.peer;
-                        addMessage(data.text, 'remote', senderUsername);
-                    }
-                    break;
-                case 'voice-offer':
-                    handleVoiceOffer(conn, data);
-                    break;
-                case 'voice-answer':
-                    handleVoiceAnswer(conn, data);
-                    break;
-                case 'voice-candidate':
-                    handleVoiceCandidate(conn, data);
-                    break;
-                case 'voice-state':
-                    updateMemberVoiceState(data.userId, data.inVoice);
-                    break;
-                case 'voice-request':
-                    handleVoiceRequest(conn, data);
-                    break;
-                case 'voice-response':
-                    handleVoiceResponse(conn, data);
-                    break;
+        // Generate a random group code
+        function generateGroupCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let code = '';
+            for (let i = 0; i < 8; i++) {
+                if (i > 0 && i % 4 === 0) code += '-';
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
             }
+            return code;
         }
 
-        // Voice chat functions
-        async function initVoiceChat() {
-            try {
-                // Get microphone access with specific constraints for continuous transmission
-                state.localStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    }
-                });
-                
-                state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                elements.voiceControls.style.display = 'flex';
-                elements.voiceIndicator.classList.add('active');
-                
-                // Notify others that we joined voice
-                state.connections.forEach(conn => {
-                    conn.send({
-                        type: 'voice-state',
-                        userId: state.peer.id,
-                        inVoice: true
-                    });
-                });
-                
-                // Update local member state
-                updateMemberVoiceState(state.peer.id, true);
-                
-                // Automatically connect to all peers in voice channel
-                startVoiceChat();
-            } catch (err) {
-                console.error('Error accessing microphone:', err);
-                addMessage('Failed to access microphone. Please check permissions.', 'system');
-            }
-        }
-
-        async function startVoiceChat() {
-            if (state.currentChannel !== 'voice') return;
+        // Create a new group
+        function createGroup(name) {
+            const groupCode = generateGroupCode();
+            const group = {
+                id: 'group-' + Date.now(),
+                name: name,
+                code: groupCode,
+                owner: state.peer.id,
+                members: [state.peer.id],
+                voiceChannels: [
+                    { id: 'voice-1', name: 'General Voice', type: 'voice' }
+                ],
+                textChannels: [
+                    { id: 'text-1', name: 'general', type: 'text' }
+                ]
+            };
             
-            if (!state.localStream) {
-                await initVoiceChat();
+            state.groups.push(group);
+            state.currentGroup = group;
+            renderGroups();
+            renderChannels();
+            
+            // Set the first text channel as active
+            setActiveChannel(group.textChannels[0]);
+            
+            addMessage(`Created group: ${name}`, 'system');
+            playChannelChangeSound();
+            
+            // Show the group code
+            showGroupCode(groupCode);
+        }
+
+        // Show group code modal
+        function showGroupCode(code) {
+            elements.groupCode.textContent = code;
+            elements.codeModal.style.display = 'flex';
+        }
+
+        // Join an existing group
+        function joinGroup(groupCode) {
+            // Check if already in this group
+            if (state.groups.some(group => group.code === groupCode)) {
+                addMessage(`You are already in this group!`, 'system');
                 return;
             }
             
-            // Connect to all peers in the group
-            state.connections.forEach(conn => {
-                if (!state.voiceConnections[conn.peer]) {
-                    createPeerConnection(conn);
-                }
-            });
-        }
-
-        async function createPeerConnection(conn) {
-            if (!state.localStream) return;
+            // In a real app, this would connect to the group owner
+            addMessage(`Joined group with code: ${groupCode}`, 'system');
+            playJoinSound();
             
-            const peerConnection = new RTCPeerConnection({
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-            });
-
-            state.voiceConnections[conn.peer] = peerConnection;
-
-            // Add local stream - always add track for continuous transmission
-            state.localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, state.localStream);
-            });
-
-            // Handle ICE candidates
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    conn.send({
-                        type: 'voice-candidate',
-                        candidate: event.candidate
-                    });
-                }
+            // For demo, we'll create a mock group
+            const mockGroup = {
+                id: 'group-' + Date.now(),
+                name: 'Demo Group',
+                code: groupCode,
+                owner: 'owner-id',
+                members: [state.peer.id, 'user2', 'user3'],
+                voiceChannels: [
+                    { id: 'voice-1', name: 'General Voice', type: 'voice' },
+                    { id: 'voice-2', name: 'Gaming', type: 'voice' }
+                ],
+                textChannels: [
+                    { id: 'text-1', name: 'general', type: 'text' },
+                    { id: 'text-2', name: 'help', type: 'text' }
+                ]
             };
-
-            // Handle remote stream
-            peerConnection.ontrack = (event) => {
-                // Create or reuse audio element for this peer
-                if (!state.remoteAudioElements[conn.peer]) {
-                    const audio = document.createElement('audio');
-                    audio.autoplay = true;
-                    audio.controls = false;
-                    audio.style.display = 'none';
-                    document.body.appendChild(audio);
-                    state.remoteAudioElements[conn.peer] = audio;
-                }
-                
-                // Update the audio stream
-                state.remoteAudioElements[conn.peer].srcObject = event.streams[0];
-            };
-
-            // Create offer
-            const offer = await peerConnection.createOffer({
-                offerToReceiveAudio: true,
-                offerToReceiveVideo: false
-            });
             
-            // Set up continuous ice gathering
-            peerConnection.onnegotiationneeded = async () => {
-                try {
-                    const newOffer = await peerConnection.createOffer();
-                    await peerConnection.setLocalDescription(newOffer);
-                    conn.send({
-                        type: 'voice-offer',
-                        offer: peerConnection.localDescription
-                    });
-                } catch (err) {
-                    console.error('Error in renegotiation:', err);
-                }
-            };
+            state.groups.push(mockGroup);
+            state.currentGroup = mockGroup;
+            renderGroups();
+            renderChannels();
+            setActiveChannel(mockGroup.textChannels[0]);
+        }
 
-            await peerConnection.setLocalDescription(offer);
-
-            conn.send({
-                type: 'voice-offer',
-                offer: offer
+        // Render groups in the sidebar
+        function renderGroups() {
+            elements.servers.innerHTML = '<div class="server-icon add" id="add-group"><i class="fas fa-plus"></i></div>';
+            
+            state.groups.forEach(group => {
+                const serverIcon = document.createElement('div');
+                serverIcon.className = 'server-icon' + (state.currentGroup?.id === group.id ? ' active' : '');
+                serverIcon.innerHTML = group.name.substring(0, 2).toUpperCase();
+                serverIcon.title = group.name;
+                serverIcon.onclick = () => {
+                    state.currentGroup = group;
+                    renderGroups();
+                    renderChannels();
+                    setActiveChannel(group.textChannels[0]);
+                    playChannelChangeSound();
+                };
+                elements.servers.appendChild(serverIcon);
             });
         }
 
-        async function handleVoiceOffer(conn, data) {
-            if (!state.localStream) await initVoiceChat();
-            
-            const peerConnection = new RTCPeerConnection({
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-            });
-
-            state.voiceConnections[conn.peer] = peerConnection;
-
-            // Add local stream - always add track for continuous transmission
-            state.localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, state.localStream);
-            });
-
-            // Handle ICE candidates
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    conn.send({
-                        type: 'voice-candidate',
-                        candidate: event.candidate
-                    });
-                }
-            };
-
-            // Handle remote stream
-            peerConnection.ontrack = (event) => {
-                // Create or reuse audio element for this peer
-                if (!state.remoteAudioElements[conn.peer]) {
-                    const audio = document.createElement('audio');
-                    audio.autoplay = true;
-                    audio.controls = false;
-                    audio.style.display = 'none';
-                    document.body.appendChild(audio);
-                    state.remoteAudioElements[conn.peer] = audio;
-                }
-                
-                // Update the audio stream
-                state.remoteAudioElements[conn.peer].srcObject = event.streams[0];
-            };
-
-            // Set remote description and create answer
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-
-            conn.send({
-                type: 'voice-answer',
-                answer: answer
-            });
-        }
-
-        async function handleVoiceAnswer(conn, data) {
-            const peerConnection = state.voiceConnections[conn.peer];
-            if (!peerConnection) return;
-            
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-        }
-
-        async function handleVoiceCandidate(conn, data) {
-            const peerConnection = state.voiceConnections[conn.peer];
-            if (!peerConnection) return;
-            
-            try {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-            } catch (err) {
-                console.error('Error adding ICE candidate:', err);
-            }
-        }
-
-        function leaveVoiceChat() {
-            if (state.localStream) {
-                state.localStream.getTracks().forEach(track => track.stop());
-                state.localStream = null;
-            }
-            
-            // Close all peer connections
-            Object.values(state.voiceConnections).forEach(pc => pc.close());
-            state.voiceConnections = {};
-            
-            // Remove all remote audio elements
-            Object.values(state.remoteAudioElements).forEach(audio => audio.remove());
-            state.remoteAudioElements = {};
-            
-            elements.voiceControls.style.display = 'none';
-            elements.voiceIndicator.classList.remove('active');
-            
-            // Notify others that we left voice
-            state.connections.forEach(conn => {
-                conn.send({
-                    type: 'voice-state',
-                    userId: state.peer.id,
-                    inVoice: false
-                });
-            });
-            
-            // Update local member state
-            updateMemberVoiceState(state.peer.id, false);
-        }
-
-        // Voice request functions
-        function handleVoiceRequest(conn, data) {
-            // Only show request if we're not already in voice chat
-            if (!state.localStream) {
-                state.voiceRequestFrom = conn.peer;
-                state.pendingVoiceRequest = data;
-                
-                const username = state.peerUsernames[conn.peer] || conn.peer;
-                elements.voiceRequestText.textContent = `${username} wants you to join voice chat. Accept to connect your microphone.`;
-                elements.voiceRequestModal.style.display = 'flex';
-            }
-        }
-
-        function handleVoiceResponse(conn, data) {
-            if (data.accepted) {
-                // If accepted, start voice chat
-                startVoiceChat();
-            } else {
-                addMessage(`${state.peerUsernames[conn.peer] || conn.peer} declined your voice chat request`, 'system');
-            }
-        }
-
-        function sendVoiceRequest() {
-            if (state.connections.length === 0) {
-                addMessage('No one is in the group to request voice chat with', 'system');
+        // Render channels for the current group
+        function renderChannels() {
+            if (!state.currentGroup) {
+                elements.voiceChannels.innerHTML = '';
+                elements.textChannels.innerHTML = '';
+                elements.groupName.textContent = 'No Group Selected';
                 return;
             }
             
-            // Send request to all connections
-            state.connections.forEach(conn => {
-                conn.send({
-                    type: 'voice-request',
-                    from: state.peer.id,
-                    username: state.username
-                });
+            elements.groupName.textContent = state.currentGroup.name;
+            
+            // Render voice channels
+            elements.voiceChannels.innerHTML = '';
+            state.currentGroup.voiceChannels.forEach(channel => {
+                const channelEl = document.createElement('div');
+                channelEl.className = 'channel';
+                channelEl.dataset.id = channel.id;
+                channelEl.dataset.type = 'voice';
+                channelEl.innerHTML = `<i class="fas fa-volume-up"></i><span>${channel.name}</span>`;
+                channelEl.onclick = () => {
+                    setActiveChannel(channel);
+                    playChannelChangeSound();
+                };
+                elements.voiceChannels.appendChild(channelEl);
             });
             
-            addMessage('Sent voice chat requests to all group members', 'system');
+            // Render text channels
+            elements.textChannels.innerHTML = '';
+            state.currentGroup.textChannels.forEach(channel => {
+                const channelEl = document.createElement('div');
+                channelEl.className = 'channel' + (state.currentChannel?.id === channel.id ? ' active' : '');
+                channelEl.dataset.id = channel.id;
+                channelEl.dataset.type = 'text';
+                channelEl.innerHTML = `<i class="fas fa-hashtag"></i><span>${channel.name}</span>`;
+                channelEl.onclick = () => {
+                    setActiveChannel(channel);
+                    playChannelChangeSound();
+                };
+                elements.textChannels.appendChild(channelEl);
+            });
         }
 
-        // UI functions
-        function addMessage(text, type = 'local', username = state.username) {
+        // Set active channel
+        function setActiveChannel(channel) {
+            state.currentChannel = channel;
+            elements.channelName.textContent = channel.name;
+            elements.messageInput.placeholder = `Message #${channel.name}`;
+            
+            // Update UI
+            document.querySelectorAll('.channel').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            const activeEl = document.querySelector(`.channel[data-id="${channel.id}"]`);
+            if (activeEl) {
+                activeEl.classList.add('active');
+            }
+            
+            // Clear messages and add welcome message
+            elements.messages.innerHTML = `<div class="system-message">Welcome to #${channel.name}</div>`;
+            
+            // Enable input for text channels
+            elements.messageInput.disabled = channel.type !== 'text';
+            
+            // If switching to voice channel, join it
+            if (channel.type === 'voice') {
+                initVoiceChat();
+            } else if (state.currentVoiceChannel) {
+                leaveVoiceChat();
+            }
+        }
+
+        // Add a message to the chat
+        function addMessage(text, type = 'local', username = state.username, gifUrl = null) {
             const messageElement = document.createElement('div');
             messageElement.className = 'message';
             
             if (type === 'system') {
-                messageElement.innerHTML = `
-                    <div class="system-message">${text}</div>
-                `;
-            } else {
+                messageElement.innerHTML = `<div class="system-message">${text}</div>`;
+            } else if (type === 'gif') {
                 const avatarText = username.substring(0, 2).toUpperCase();
+                const now = new Date();
+                const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
                 messageElement.innerHTML = `
                     <div class="avatar">${avatarText}</div>
                     <div class="message-content">
                         <div class="message-header">
                             <span class="username">${username}</span>
-                            <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+                            <span class="timestamp">${timeString}</span>
+                        </div>
+                        <div class="gif-message">
+                            <img src="${gifUrl}" alt="GIF">
+                        </div>
+                    </div>
+                `;
+            } else {
+                const avatarText = username.substring(0, 2).toUpperCase();
+                const now = new Date();
+                const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                messageElement.innerHTML = `
+                    <div class="avatar">${avatarText}</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="username">${username}</span>
+                            <span class="timestamp">${timeString}</span>
                         </div>
                         <div class="message-text">${text}</div>
                     </div>
                 `;
                 
-                if (type === 'local') {
-                    messageElement.querySelector('.avatar').style.backgroundColor = '#ED4245';
+                // Play message sound only for remote messages
+                if (type === 'remote') {
+                    playMessageSound();
                 }
             }
             
@@ -944,220 +1157,225 @@
             elements.messages.scrollTop = elements.messages.scrollHeight;
         }
 
-        function addMember(username, userId) {
-            // Check if member already exists
-            if (state.members.some(m => m.id === userId)) return;
-            
-            const member = {
-                id: userId,
-                username: username,
-                inVoice: false
-            };
-            state.members.push(member);
-            renderMembers();
-        }
-
-        function removeMember(userId) {
-            state.members = state.members.filter(m => m.id !== userId);
-            renderMembers();
-        }
-
-        function updateMemberVoiceState(userId, inVoice) {
-            const member = state.members.find(m => m.id === userId);
-            if (member) {
-                member.inVoice = inVoice;
-                renderMembers();
+        // Initialize voice chat
+        async function initVoiceChat() {
+            try {
+                // For demo, we'll simulate voice chat
+                elements.voiceControls.style.display = 'flex';
+                elements.voiceIndicator.classList.add('active');
+                elements.currentVoiceChannel.textContent = state.currentChannel.name;
+                
+                setTimeout(() => {
+                    elements.voiceControls.style.transform = 'translate(-50%, 0)';
+                    elements.voiceControls.style.opacity = '1';
+                }, 10);
+                
+                addMessage('Joined voice channel', 'system');
+                playJoinSound();
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                addMessage('Failed to access microphone. Please check permissions.', 'system');
             }
         }
 
-        function renderMembers() {
-            elements.membersList.innerHTML = '';
+        // Leave voice chat
+        function leaveVoiceChat() {
+            elements.voiceControls.style.transform = 'translate(-50%, 100px)';
+            elements.voiceControls.style.opacity = '0';
+            elements.voiceIndicator.classList.remove('active');
             
-            state.members.forEach(member => {
-                const memberElement = document.createElement('div');
-                memberElement.className = 'member';
-                
-                const avatarText = member.username.substring(0, 2).toUpperCase();
-                memberElement.innerHTML = `
-                    <div class="member-avatar">${avatarText}</div>
-                    <span>${member.username}</span>
-                    <div class="member-voice ${member.inVoice ? 'active' : ''}"></div>
-                `;
-                
-                elements.membersList.appendChild(memberElement);
-            });
-        }
-
-        function showUsernameModal() {
-            elements.usernameModal.style.display = 'flex';
-        }
-
-        function hideUsernameModal() {
-            elements.usernameModal.style.display = 'none';
-        }
-
-        function showGroupModal() {
-            elements.groupModal.style.display = 'flex';
-        }
-
-        function hideGroupModal() {
-            elements.groupModal.style.display = 'none';
-        }
-
-        function switchChannel(channel) {
-            state.currentChannel = channel;
+            setTimeout(() => {
+                elements.voiceControls.style.display = 'none';
+            }, 300);
             
-            // Update UI
-            elements.channels.forEach(c => {
-                if (c.dataset.channel === channel) {
-                    c.classList.add('active');
-                } else {
-                    c.classList.remove('active');
-                }
-            });
+            addMessage('Left voice channel', 'system');
+            playLeaveSound();
+        }
+
+        // Toggle mute
+        function toggleMute() {
+            state.isMuted = !state.isMuted;
+            elements.muteBtn.classList.toggle('muted', state.isMuted);
+            elements.muteBtn.innerHTML = state.isMuted ? 
+                '<i class="fas fa-microphone-slash"></i>' : 
+                '<i class="fas fa-microphone"></i>';
             
-            // Update input placeholder
-            elements.messageInput.placeholder = `Message #${channel}-chat`;
+            addMessage(`You ${state.isMuted ? 'muted' : 'unmuted'} your microphone`, 'system');
             
-            // Handle voice channel
-            if (channel === 'voice') {
-                // Instead of automatically starting, send requests
-                sendVoiceRequest();
-            } else if (state.currentChannel === 'voice') {
-                leaveVoiceChat();
+            // Play appropriate sound
+            if (state.isMuted) {
+                playMuteSound();
+            } else {
+                playUnmuteSound();
             }
         }
 
-        // Event listeners
-        elements.saveUsername.addEventListener('click', () => {
-            const username = elements.usernameInput.value.trim();
-            if (username) {
-                state.username = username;
-                hideUsernameModal();
+        // Populate GIF grid
+        function populateGIFGrid() {
+            elements.gifGrid.innerHTML = '';
+            sampleGIFs.forEach(gif => {
+                const gifItem = document.createElement('div');
+                gifItem.className = 'gif-item';
+                gifItem.innerHTML = `<img src="${gif.url}" alt="GIF">`;
+                gifItem.addEventListener('click', () => {
+                    sendGIF(gif.url);
+                    elements.gifPicker.style.display = 'none';
+                });
+                elements.gifGrid.appendChild(gifItem);
+            });
+        }
+
+        // Send GIF function
+        function sendGIF(gifUrl) {
+            if (state.currentChannel && state.currentChannel.type === 'text') {
+                addMessage('', 'gif', state.username, gifUrl);
+                playMessageSound();
+            }
+        }
+
+        // Initialize the app
+        function init() {
+            // Check if username is already set
+            const savedUsername = localStorage.getItem('username');
+            if (savedUsername) {
+                state.username = savedUsername;
+                elements.usernameModal.style.display = 'none';
                 initPeer();
             }
-        });
-
-        elements.cancelUsername.addEventListener('click', hideUsernameModal);
-
-        elements.joinGroup.addEventListener('click', () => {
-            const groupId = elements.groupIdInput.value.trim();
-            if (groupId) {
-                state.currentGroup = groupId;
-                hideGroupModal();
-                
-                // Connect to group host
-                const conn = state.peer.connect(groupId, {
-                    metadata: {
-                        username: state.username,
-                        userId: state.peer.id
-                    }
-                });
-                
-                setupConnection(conn);
-                addMessage(`Joined group ${groupId}`, 'system');
-            }
-        });
-
-        elements.createGroup.addEventListener('click', () => {
-            state.currentGroup = state.peer.id;
-            hideGroupModal();
-            addMessage(`Created group ${state.peer.id}`, 'system');
-            addMessage('Share this ID with others to join:', 'system');
-            addMessage(state.peer.id, 'system');
-        });
-
-        elements.cancelGroup.addEventListener('click', hideGroupModal);
-
-        elements.messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && elements.messageInput.value.trim()) {
-                const message = elements.messageInput.value.trim();
-                addMessage(message, 'local');
-                
-                // Send to all connections
-                state.connections.forEach(conn => {
-                    conn.send({
-                        type: 'message',
-                        text: message,
-                        channel: state.currentChannel
-                    });
-                });
-                
-                elements.messageInput.value = '';
-            }
-        });
-
-        elements.muteBtn.addEventListener('click', () => {
-            if (state.localStream) {
-                const audioTracks = state.localStream.getAudioTracks();
-                audioTracks.forEach(track => {
-                    track.enabled = !track.enabled;
-                });
-                elements.muteBtn.classList.toggle('muted');
-            }
-        });
-
-        elements.leaveBtn.addEventListener('click', leaveVoiceChat);
-
-        // Channel switching
-        elements.channels.forEach(channel => {
-            channel.addEventListener('click', () => {
-                const channelType = channel.dataset.channel;
-                if (channelType) {
-                    switchChannel(channelType);
+            
+            // Populate GIF grid
+            populateGIFGrid();
+            
+            // Event listeners
+            elements.saveUsername.addEventListener('click', () => {
+                const username = elements.usernameInput.value.trim();
+                if (username) {
+                    state.username = username;
+                    localStorage.setItem('username', username);
+                    elements.usernameModal.style.display = 'none';
+                    initPeer();
                 }
             });
-        });
-
-        // Group management button
-        elements.groupManagementBtn.addEventListener('click', () => {
-            if (state.peer) {
-                showGroupModal();
-            } else {
-                addMessage('Please set your username first', 'system');
-            }
-        });
-
-        // Voice request buttons
-        elements.acceptVoice.addEventListener('click', async () => {
-            elements.voiceRequestModal.style.display = 'none';
             
-            // Accept the request and initialize voice chat
-            const conn = state.connections.find(c => c.peer === state.voiceRequestFrom);
-            if (conn) {
-                conn.send({
-                    type: 'voice-response',
-                    accepted: true,
-                    from: state.peer.id
-                });
-                
-                // Switch to voice channel and start
-                switchChannel('voice');
-            }
+            elements.addGroup.addEventListener('click', () => {
+                elements.groupModal.style.display = 'flex';
+            });
             
-            state.voiceRequestFrom = null;
-            state.pendingVoiceRequest = null;
-        });
+            elements.cancelGroup.addEventListener('click', () => {
+                elements.groupModal.style.display = 'none';
+            });
+            
+            elements.createGroup.addEventListener('click', () => {
+                const groupName = elements.groupNameInput.value.trim();
+                if (groupName) {
+                    createGroup(groupName);
+                    elements.groupModal.style.display = 'none';
+                    elements.groupNameInput.value = '';
+                }
+            });
+            
+            elements.groupSettings.addEventListener('click', () => {
+                if (state.currentGroup) {
+                    elements.joinModal.style.display = 'flex';
+                    elements.groupIdInput.value = '';
+                }
+            });
+            
+            elements.cancelJoin.addEventListener('click', () => {
+                elements.joinModal.style.display = 'none';
+            });
+            
+            elements.joinGroup.addEventListener('click', () => {
+                const groupCode = elements.groupIdInput.value.trim();
+                if (groupCode) {
+                    joinGroup(groupCode);
+                    elements.joinModal.style.display = 'none';
+                }
+            });
+            
+            elements.addVoiceChannel.addEventListener('click', () => {
+                if (state.currentGroup) {
+                    const channelName = prompt('Enter voice channel name:');
+                    if (channelName) {
+                        state.currentGroup.voiceChannels.push({
+                            id: 'voice-' + Date.now(),
+                            name: channelName,
+                            type: 'voice'
+                        });
+                        renderChannels();
+                        playChannelChangeSound();
+                    }
+                }
+            });
+            
+            elements.addTextChannel.addEventListener('click', () => {
+                if (state.currentGroup) {
+                    const channelName = prompt('Enter text channel name:');
+                    if (channelName) {
+                        state.currentGroup.textChannels.push({
+                            id: 'text-' + Date.now(),
+                            name: channelName,
+                            type: 'text'
+                        });
+                        renderChannels();
+                        playChannelChangeSound();
+                    }
+                }
+            });
+            
+            elements.messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && elements.messageInput.value.trim()) {
+                    const message = elements.messageInput.value.trim();
+                    addMessage(message, 'local');
+                    elements.messageInput.value = '';
+                    playMessageSound();
+                }
+            });
+            
+            elements.muteBtn.addEventListener('click', toggleMute);
+            elements.leaveBtn.addEventListener('click', leaveVoiceChat);
+            
+            elements.voiceChatBtn.addEventListener('click', () => {
+                if (state.currentGroup) {
+                    const voiceChannel = state.currentGroup.voiceChannels[0];
+                    if (voiceChannel) {
+                        setActiveChannel(voiceChannel);
+                    }
+                }
+            });
+            
+            elements.copyCode.addEventListener('click', () => {
+                navigator.clipboard.writeText(elements.groupCode.textContent);
+                playCopySound();
+                alert('Group code copied to clipboard!');
+            });
+            
+            elements.closeCode.addEventListener('click', () => {
+                elements.codeModal.style.display = 'none';
+            });
+            
+            elements.gifButton.addEventListener('click', () => {
+                if (state.currentChannel && state.currentChannel.type === 'text') {
+                    elements.gifPicker.style.display = 'flex';
+                }
+            });
+            
+            elements.gifClose.addEventListener('click', () => {
+                elements.gifPicker.style.display = 'none';
+            });
+            
+            elements.gifSearch.addEventListener('input', () => {
+                // In a real app, this would search for GIFs
+                // For demo, we'll just repopulate with the same GIFs
+                populateGIFGrid();
+            });
+            
+            // Add welcome message
+            addMessage('Welcome to Discord-Style Voice Chat! Create a group to get started.', 'system');
+        }
 
-        elements.declineVoice.addEventListener('click', () => {
-            elements.voiceRequestModal.style.display = 'none';
-            
-            // Decline the request
-            const conn = state.connections.find(c => c.peer === state.voiceRequestFrom);
-            if (conn) {
-                conn.send({
-                    type: 'voice-response',
-                    accepted: false,
-                    from: state.peer.id
-                });
-            }
-            
-            state.voiceRequestFrom = null;
-            state.pendingVoiceRequest = null;
-        });
-
-        // Initialize
-        showUsernameModal();
+        // Start the app
+        init();
     </script>
 </body>
 </html>
