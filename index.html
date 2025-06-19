@@ -342,6 +342,63 @@
         .voice-indicator.active {
             display: block;
         }
+
+        /* Request modal */
+        .request-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        
+        .request-content {
+            background-color: var(--darker);
+            padding: 24px;
+            border-radius: 8px;
+            width: 350px;
+            max-width: 90%;
+        }
+        
+        .request-title {
+            margin-bottom: 16px;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        
+        .request-text {
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        
+        .request-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        
+        .request-btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .request-btn.accept {
+            background-color: var(--success);
+            color: white;
+        }
+        
+        .request-btn.decline {
+            background-color: var(--danger);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -427,6 +484,20 @@
         </div>
     </div>
 
+    <!-- Voice Request Modal -->
+    <div class="request-modal" id="voice-request-modal" style="display: none;">
+        <div class="request-content">
+            <div class="request-title">Voice Chat Request</div>
+            <div class="request-text" id="voice-request-text">
+                User wants you to join voice chat. Accept to connect your microphone.
+            </div>
+            <div class="request-buttons">
+                <button class="request-btn decline" id="decline-voice">Decline</button>
+                <button class="request-btn accept" id="accept-voice">Accept</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script>
         // App state
@@ -440,8 +511,10 @@
             voiceConnections: {},
             currentChannel: 'text',
             members: [],
-            peerUsernames: {}, // Tracks usernames by peer ID
-            remoteAudioElements: {} // Tracks audio elements for each peer
+            peerUsernames: {},
+            remoteAudioElements: {},
+            voiceRequestFrom: null,
+            pendingVoiceRequest: null
         };
 
         // DOM elements
@@ -463,7 +536,11 @@
             membersList: document.getElementById('members-list'),
             voiceIndicator: document.getElementById('voice-indicator'),
             channels: document.querySelectorAll('.channel'),
-            groupManagementBtn: document.getElementById('group-management-btn')
+            groupManagementBtn: document.getElementById('group-management-btn'),
+            voiceRequestModal: document.getElementById('voice-request-modal'),
+            voiceRequestText: document.getElementById('voice-request-text'),
+            acceptVoice: document.getElementById('accept-voice'),
+            declineVoice: document.getElementById('decline-voice')
         };
 
         // Initialize PeerJS
@@ -567,6 +644,12 @@
                     break;
                 case 'voice-state':
                     updateMemberVoiceState(data.userId, data.inVoice);
+                    break;
+                case 'voice-request':
+                    handleVoiceRequest(conn, data);
+                    break;
+                case 'voice-response':
+                    handleVoiceResponse(conn, data);
                     break;
             }
         }
@@ -790,6 +873,46 @@
             updateMemberVoiceState(state.peer.id, false);
         }
 
+        // Voice request functions
+        function handleVoiceRequest(conn, data) {
+            // Only show request if we're not already in voice chat
+            if (!state.localStream) {
+                state.voiceRequestFrom = conn.peer;
+                state.pendingVoiceRequest = data;
+                
+                const username = state.peerUsernames[conn.peer] || conn.peer;
+                elements.voiceRequestText.textContent = `${username} wants you to join voice chat. Accept to connect your microphone.`;
+                elements.voiceRequestModal.style.display = 'flex';
+            }
+        }
+
+        function handleVoiceResponse(conn, data) {
+            if (data.accepted) {
+                // If accepted, start voice chat
+                startVoiceChat();
+            } else {
+                addMessage(`${state.peerUsernames[conn.peer] || conn.peer} declined your voice chat request`, 'system');
+            }
+        }
+
+        function sendVoiceRequest() {
+            if (state.connections.length === 0) {
+                addMessage('No one is in the group to request voice chat with', 'system');
+                return;
+            }
+            
+            // Send request to all connections
+            state.connections.forEach(conn => {
+                conn.send({
+                    type: 'voice-request',
+                    from: state.peer.id,
+                    username: state.username
+                });
+            });
+            
+            addMessage('Sent voice chat requests to all group members', 'system');
+        }
+
         // UI functions
         function addMessage(text, type = 'local', username = state.username) {
             const messageElement = document.createElement('div');
@@ -898,7 +1021,8 @@
             
             // Handle voice channel
             if (channel === 'voice') {
-                startVoiceChat();
+                // Instead of automatically starting, send requests
+                sendVoiceRequest();
             } else if (state.currentChannel === 'voice') {
                 leaveVoiceChat();
             }
@@ -992,6 +1116,44 @@
             } else {
                 addMessage('Please set your username first', 'system');
             }
+        });
+
+        // Voice request buttons
+        elements.acceptVoice.addEventListener('click', async () => {
+            elements.voiceRequestModal.style.display = 'none';
+            
+            // Accept the request and initialize voice chat
+            const conn = state.connections.find(c => c.peer === state.voiceRequestFrom);
+            if (conn) {
+                conn.send({
+                    type: 'voice-response',
+                    accepted: true,
+                    from: state.peer.id
+                });
+                
+                // Switch to voice channel and start
+                switchChannel('voice');
+            }
+            
+            state.voiceRequestFrom = null;
+            state.pendingVoiceRequest = null;
+        });
+
+        elements.declineVoice.addEventListener('click', () => {
+            elements.voiceRequestModal.style.display = 'none';
+            
+            // Decline the request
+            const conn = state.connections.find(c => c.peer === state.voiceRequestFrom);
+            if (conn) {
+                conn.send({
+                    type: 'voice-response',
+                    accepted: false,
+                    from: state.peer.id
+                });
+            }
+            
+            state.voiceRequestFrom = null;
+            state.pendingVoiceRequest = null;
         });
 
         // Initialize
