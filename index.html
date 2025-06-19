@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord-Style Chat with Groups & GIFs</title>
+    <title>Discord-Style Group Chat with GIF Support</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -287,6 +286,7 @@
         .gif-message img {
             width: 100%;
             display: block;
+            border-radius: 6px;
         }
 
         .system-message {
@@ -561,6 +561,7 @@
             border-radius: 4px;
             width: 100%;
             outline: none;
+            font-size: 16px;
         }
 
         .gif-grid {
@@ -577,26 +578,124 @@
             overflow: hidden;
             cursor: pointer;
             height: 150px;
+            transition: transform 0.2s;
+        }
+
+        .gif-item:hover {
+            transform: scale(1.03);
         }
 
         .gif-item img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: transform 0.2s;
-        }
-
-        .gif-item:hover img {
-            transform: scale(1.05);
         }
 
         .gif-close {
             color: var(--text-light);
             cursor: pointer;
+            font-size: 24px;
         }
 
         .gif-close:hover {
             color: var(--danger);
+        }
+
+        /* Settings panel */
+        .settings-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 350px;
+            height: 100%;
+            background-color: var(--darker);
+            box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+            z-index: 500;
+            overflow-y: auto;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .settings-panel.active {
+            transform: translateX(0);
+        }
+
+        .settings-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .settings-close {
+            cursor: pointer;
+            font-size: 24px;
+            color: var(--text-light);
+        }
+
+        .settings-close:hover {
+            color: var(--danger);
+        }
+
+        .settings-section {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .settings-section-title {
+            margin-bottom: 15px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .settings-item {
+            margin-bottom: 15px;
+        }
+
+        .settings-label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-light);
+        }
+
+        .settings-input {
+            width: 100%;
+            padding: 10px 15px;
+            background-color: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: white;
+            font-size: 15px;
+        }
+
+        .settings-btn {
+            padding: 10px 20px;
+            background-color: var(--primary);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .settings-btn:hover {
+            background-color: #4752c4;
+        }
+
+        .settings-btn.danger {
+            background-color: var(--danger);
+        }
+
+        .settings-btn.danger:hover {
+            background-color: #d23336;
         }
 
         /* Animations */
@@ -641,6 +740,10 @@
             
             .channels {
                 width: 200px;
+            }
+            
+            .settings-panel {
+                width: 100%;
             }
             
             .gif-picker {
@@ -689,6 +792,19 @@
         </div>
         <div class="messages" id="messages">
             <div class="system-message">Welcome! Create or join a group to start chatting.</div>
+            <div class="message">
+                <div class="avatar">DC</div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <span class="username">DiscordClone</span>
+                        <span class="timestamp">Just now</span>
+                    </div>
+                    <div class="message-text">Send GIFs using the GIF button!</div>
+                    <div class="gif-message">
+                        <img src="https://media.giphy.com/media/3o7aCTPPm4OHfRLSH6/giphy.gif" alt="GIF">
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="input-area">
             <div class="message-input-container">
@@ -734,6 +850,62 @@
         You're in a voice channel
     </div>
 
+    <!-- Settings panel -->
+    <div class="settings-panel" id="settings-panel">
+        <div class="settings-header">
+            <div class="settings-title">Group Settings</div>
+            <div class="settings-close" id="settings-close">&times;</div>
+        </div>
+        
+        <div class="settings-section">
+            <div class="settings-section-title">General Settings</div>
+            
+            <div class="settings-item">
+                <label class="settings-label">Group Name</label>
+                <input type="text" class="settings-input" id="settings-group-name">
+            </div>
+            
+            <div class="settings-item">
+                <label class="settings-label">Group Description</label>
+                <textarea class="settings-input" id="settings-group-description" rows="3"></textarea>
+            </div>
+            
+            <button class="settings-btn" id="save-settings">Save Changes</button>
+        </div>
+        
+        <div class="settings-section">
+            <div class="settings-section-title">Invite Members</div>
+            
+            <div class="settings-item">
+                <label class="settings-label">Invite Code</label>
+                <div class="code-display">
+                    <span id="settings-group-code">ABCD-1234</span>
+                    <button class="copy-btn" id="copy-code">Copy</button>
+                </div>
+            </div>
+            
+            <div class="settings-item">
+                <label class="settings-label">Invite Link</label>
+                <div class="code-display">
+                    <span id="settings-group-link">https://groupchat.com/join/ABCD-1234</span>
+                    <button class="copy-btn" id="copy-link">Copy</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="settings-section">
+            <div class="settings-section-title">Danger Zone</div>
+            
+            <div class="settings-item">
+                <p style="margin-bottom: 15px; color: var(--text-light);">
+                    These actions are irreversible. Proceed with caution.
+                </p>
+                <button class="settings-btn danger" id="leave-group">Leave Group</button>
+                <button class="settings-btn danger" id="delete-group">Delete Group</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Group Creation Modal -->
     <div class="modal" id="group-modal">
         <div class="modal-content">
@@ -758,23 +930,6 @@
         </div>
     </div>
 
-    <!-- Group Code Modal -->
-    <div class="modal" id="code-modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-title">Group Invite Code</div>
-            <div class="code-display">
-                <span id="group-code">ABCD-1234</span>
-                <button class="copy-btn" id="copy-code">Copy</button>
-            </div>
-            <p style="text-align: center; margin: 15px 0; color: var(--text-light);">
-                Share this code with others to join your group
-            </p>
-            <div class="modal-buttons">
-                <button class="modal-btn primary" id="close-code">Close</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Username Modal -->
     <div class="modal" id="username-modal" style="display: flex;">
         <div class="modal-content">
@@ -794,6 +949,7 @@
     <audio id="unmute-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-modem-chat-connection-2591.mp3"></audio>
     <audio id="channel-change-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3"></audio>
     <audio id="copy-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-click-button-1109.mp3"></audio>
+    <audio id="gif-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-game-ball-tap-2073.mp3"></audio>
 
     <script>
         // App state
@@ -801,15 +957,26 @@
             username: '',
             currentGroup: null,
             currentChannel: null,
-            peer: null,
-            connections: [],
-            localStream: null,
-            voiceConnections: {},
             groups: [],
             channels: [],
             currentVoiceChannel: null,
-            isMuted: false
+            isMuted: false,
+            groupCodes: {}
         };
+
+        // Sample GIFs for demonstration
+        const sampleGIFs = [
+            {id: 'gif1', url: 'https://media.giphy.com/media/3o7aCTPPm4OHfRLSH6/giphy.gif'},
+            {id: 'gif2', url: 'https://media.giphy.com/media/l0HlOBZcl7sbV6LnO/giphy.gif'},
+            {id: 'gif3', url: 'https://media.giphy.com/media/3o7abAHdYv57BN4Gis/giphy.gif'},
+            {id: 'gif4', url: 'https://media.giphy.com/media/3o7TKwxYkeW0ZvTqsU/giphy.gif'},
+            {id: 'gif5', url: 'https://media.giphy.com/media/26tknCqiJrBQG6bxC/giphy.gif'},
+            {id: 'gif6', url: 'https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif'},
+            {id: 'gif7', url: 'https://media.giphy.com/media/l0HlHFRbmaZtBRhY4/giphy.gif'},
+            {id: 'gif8', url: 'https://media.giphy.com/media/l0HlNQ03J4Jp5PyV2/giphy.gif'},
+            {id: 'gif9', url: 'https://media.giphy.com/media/l0HlT2XhZvHh5Jfu8/giphy.gif'},
+            {id: 'gif10', url: 'https://media.giphy.com/media/3o7TKsQ8UQ4l4LhGz6/giphy.gif'},
+        ];
 
         // DOM elements
         const elements = {
@@ -849,30 +1016,24 @@
             unmuteSound: document.getElementById('unmute-sound'),
             channelChangeSound: document.getElementById('channel-change-sound'),
             copySound: document.getElementById('copy-sound'),
-            codeModal: document.getElementById('code-modal'),
-            groupCode: document.getElementById('group-code'),
+            gifSound: document.getElementById('gif-sound'),
+            settingsPanel: document.getElementById('settings-panel'),
+            settingsClose: document.getElementById('settings-close'),
+            settingsGroupName: document.getElementById('settings-group-name'),
+            settingsGroupDescription: document.getElementById('settings-group-description'),
+            saveSettings: document.getElementById('save-settings'),
+            settingsGroupCode: document.getElementById('settings-group-code'),
+            settingsGroupLink: document.getElementById('settings-group-link'),
             copyCode: document.getElementById('copy-code'),
-            closeCode: document.getElementById('close-code'),
+            copyLink: document.getElementById('copy-link'),
+            leaveGroupBtn: document.getElementById('leave-group'),
+            deleteGroupBtn: document.getElementById('delete-group'),
             gifButton: document.getElementById('gif-button'),
             gifPicker: document.getElementById('gif-picker'),
             gifClose: document.getElementById('gif-close'),
             gifSearch: document.getElementById('gif-search'),
             gifGrid: document.getElementById('gif-grid')
         };
-
-        // Sample GIFs for demonstration
-        const sampleGIFs = [
-            {id: 'gif1', url: 'https://media.giphy.com/media/3o7aCTPPm4OHfRLSH6/giphy.gif'},
-            {id: 'gif2', url: 'https://media.giphy.com/media/l0HlOBZcl7sbV6LnO/giphy.gif'},
-            {id: 'gif3', url: 'https://media.giphy.com/media/3o7abAHdYv57BN4Gis/giphy.gif'},
-            {id: 'gif4', url: 'https://media.giphy.com/media/3o7TKwxYkeW0ZvTqsU/giphy.gif'},
-            {id: 'gif5', url: 'https://media.giphy.com/media/26tknCqiJrBQG6bxC/giphy.gif'},
-            {id: 'gif6', url: 'https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif'},
-            {id: 'gif7', url: 'https://media.giphy.com/media/l0HlHFRbmaZtBRhY4/giphy.gif'},
-            {id: 'gif8', url: 'https://media.giphy.com/media/l0HlNQ03J4Jp5PyV2/giphy.gif'},
-            {id: 'gif9', url: 'https://media.giphy.com/media/l0HlT2XhZvHh5Jfu8/giphy.gif'},
-            {id: 'gif10', url: 'https://media.giphy.com/media/3o7TKsQ8UQ4l4LhGz6/giphy.gif'},
-        ];
 
         // Sound functions
         function playJoinSound() {
@@ -910,24 +1071,9 @@
             elements.copySound.play();
         }
 
-        // Initialize PeerJS
-        function initPeer() {
-            state.peer = new Peer({
-                host: '0.peerjs.com',
-                port: 443,
-                path: '/',
-                debug: 3
-            });
-
-            state.peer.on('open', (id) => {
-                console.log('Peer connected with ID:', id);
-                addMessage(`Connected with ID: ${id}`, 'system');
-            });
-
-            state.peer.on('error', (err) => {
-                console.error('Peer error:', err);
-                addMessage(`Error: ${err}`, 'system');
-            });
+        function playGifSound() {
+            elements.gifSound.currentTime = 0;
+            elements.gifSound.play();
         }
 
         // Generate a random group code
@@ -948,8 +1094,9 @@
                 id: 'group-' + Date.now(),
                 name: name,
                 code: groupCode,
-                owner: state.peer.id,
-                members: [state.peer.id],
+                description: 'A new group for chatting and collaboration',
+                owner: state.username,
+                members: [state.username],
                 voiceChannels: [
                     { id: 'voice-1', name: 'General Voice', type: 'voice' }
                 ],
@@ -960,6 +1107,7 @@
             
             state.groups.push(group);
             state.currentGroup = group;
+            state.groupCodes[groupCode] = group;
             renderGroups();
             renderChannels();
             
@@ -968,15 +1116,6 @@
             
             addMessage(`Created group: ${name}`, 'system');
             playChannelChangeSound();
-            
-            // Show the group code
-            showGroupCode(groupCode);
-        }
-
-        // Show group code modal
-        function showGroupCode(code) {
-            elements.groupCode.textContent = code;
-            elements.codeModal.style.display = 'flex';
         }
 
         // Join an existing group
@@ -987,32 +1126,27 @@
                 return;
             }
             
-            // In a real app, this would connect to the group owner
-            addMessage(`Joined group with code: ${groupCode}`, 'system');
-            playJoinSound();
+            // Check if group exists
+            if (!state.groupCodes[groupCode]) {
+                addMessage(`Group with code ${groupCode} not found!`, 'system');
+                return;
+            }
             
-            // For demo, we'll create a mock group
-            const mockGroup = {
-                id: 'group-' + Date.now(),
-                name: 'Demo Group',
-                code: groupCode,
-                owner: 'owner-id',
-                members: [state.peer.id, 'user2', 'user3'],
-                voiceChannels: [
-                    { id: 'voice-1', name: 'General Voice', type: 'voice' },
-                    { id: 'voice-2', name: 'Gaming', type: 'voice' }
-                ],
-                textChannels: [
-                    { id: 'text-1', name: 'general', type: 'text' },
-                    { id: 'text-2', name: 'help', type: 'text' }
-                ]
-            };
+            const group = state.groupCodes[groupCode];
             
-            state.groups.push(mockGroup);
-            state.currentGroup = mockGroup;
+            // Add user to group
+            if (!group.members.includes(state.username)) {
+                group.members.push(state.username);
+            }
+            
+            state.groups.push(group);
+            state.currentGroup = group;
             renderGroups();
             renderChannels();
-            setActiveChannel(mockGroup.textChannels[0]);
+            setActiveChannel(group.textChannels[0]);
+            
+            addMessage(`Joined group: ${group.name}`, 'system');
+            playJoinSound();
         }
 
         // Render groups in the sidebar
@@ -1114,7 +1248,7 @@
             
             if (type === 'system') {
                 messageElement.innerHTML = `<div class="system-message">${text}</div>`;
-            } else if (type === 'gif') {
+            } else if (gifUrl) {
                 const avatarText = username.substring(0, 2).toUpperCase();
                 const now = new Date();
                 const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -1146,15 +1280,15 @@
                         <div class="message-text">${text}</div>
                     </div>
                 `;
-                
-                // Play message sound only for remote messages
-                if (type === 'remote') {
-                    playMessageSound();
-                }
             }
             
             elements.messages.appendChild(messageElement);
             elements.messages.scrollTop = elements.messages.scrollHeight;
+            
+            // Play message sound for non-system messages
+            if (type !== 'system') {
+                playMessageSound();
+            }
         }
 
         // Initialize voice chat
@@ -1210,6 +1344,50 @@
             }
         }
 
+        // Show group settings
+        function showGroupSettings() {
+            if (!state.currentGroup) return;
+            
+            elements.settingsGroupName.value = state.currentGroup.name;
+            elements.settingsGroupDescription.value = state.currentGroup.description;
+            elements.settingsGroupCode.textContent = state.currentGroup.code;
+            elements.settingsGroupLink.textContent = `https://groupchat.com/join/${state.currentGroup.code}`;
+            
+            elements.settingsPanel.classList.add('active');
+        }
+
+        // Save group settings
+        function saveGroupSettings() {
+            if (!state.currentGroup) return;
+            
+            state.currentGroup.name = elements.settingsGroupName.value;
+            state.currentGroup.description = elements.settingsGroupDescription.value;
+            
+            elements.groupName.textContent = state.currentGroup.name;
+            renderGroups();
+            
+            addMessage('Group settings updated', 'system');
+        }
+
+        // Leave current group
+        function leaveGroup() {
+            if (!state.currentGroup) return;
+            
+            const groupName = state.currentGroup.name;
+            state.groups = state.groups.filter(g => g.id !== state.currentGroup.id);
+            state.currentGroup = null;
+            state.currentChannel = null;
+            
+            renderGroups();
+            renderChannels();
+            elements.messages.innerHTML = `<div class="system-message">Welcome! Create or join a group to start chatting.</div>`;
+            
+            addMessage(`Left group: ${groupName}`, 'system');
+            playLeaveSound();
+            
+            elements.settingsPanel.classList.remove('active');
+        }
+
         // Populate GIF grid
         function populateGIFGrid() {
             elements.gifGrid.innerHTML = '';
@@ -1219,7 +1397,6 @@
                 gifItem.innerHTML = `<img src="${gif.url}" alt="GIF">`;
                 gifItem.addEventListener('click', () => {
                     sendGIF(gif.url);
-                    elements.gifPicker.style.display = 'none';
                 });
                 elements.gifGrid.appendChild(gifItem);
             });
@@ -1228,8 +1405,9 @@
         // Send GIF function
         function sendGIF(gifUrl) {
             if (state.currentChannel && state.currentChannel.type === 'text') {
-                addMessage('', 'gif', state.username, gifUrl);
-                playMessageSound();
+                addMessage('', 'local', state.username, gifUrl);
+                elements.gifPicker.style.display = 'none';
+                playGifSound();
             }
         }
 
@@ -1240,7 +1418,9 @@
             if (savedUsername) {
                 state.username = savedUsername;
                 elements.usernameModal.style.display = 'none';
-                initPeer();
+            } else {
+                // Set a default username
+                state.username = "User" + Math.floor(Math.random() * 1000);
             }
             
             // Populate GIF grid
@@ -1253,7 +1433,6 @@
                     state.username = username;
                     localStorage.setItem('username', username);
                     elements.usernameModal.style.display = 'none';
-                    initPeer();
                 }
             });
             
@@ -1274,11 +1453,10 @@
                 }
             });
             
-            elements.groupSettings.addEventListener('click', () => {
-                if (state.currentGroup) {
-                    elements.joinModal.style.display = 'flex';
-                    elements.groupIdInput.value = '';
-                }
+            elements.groupSettings.addEventListener('click', showGroupSettings);
+            
+            elements.settingsClose.addEventListener('click', () => {
+                elements.settingsPanel.classList.remove('active');
             });
             
             elements.cancelJoin.addEventListener('click', () => {
@@ -1328,7 +1506,6 @@
                     const message = elements.messageInput.value.trim();
                     addMessage(message, 'local');
                     elements.messageInput.value = '';
-                    playMessageSound();
                 }
             });
             
@@ -1345,13 +1522,25 @@
             });
             
             elements.copyCode.addEventListener('click', () => {
-                navigator.clipboard.writeText(elements.groupCode.textContent);
+                navigator.clipboard.writeText(elements.settingsGroupCode.textContent);
                 playCopySound();
                 alert('Group code copied to clipboard!');
             });
             
-            elements.closeCode.addEventListener('click', () => {
-                elements.codeModal.style.display = 'none';
+            elements.copyLink.addEventListener('click', () => {
+                navigator.clipboard.writeText(elements.settingsGroupLink.textContent);
+                playCopySound();
+                alert('Group link copied to clipboard!');
+            });
+            
+            elements.saveSettings.addEventListener('click', saveGroupSettings);
+            
+            elements.leaveGroupBtn.addEventListener('click', leaveGroup);
+            
+            elements.deleteGroupBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to delete this group? This action cannot be undone.')) {
+                    leaveGroup();
+                }
             });
             
             elements.gifButton.addEventListener('click', () => {
@@ -1370,8 +1559,10 @@
                 populateGIFGrid();
             });
             
-            // Add welcome message
-            addMessage('Welcome to Discord-Style Voice Chat! Create a group to get started.', 'system');
+            // Simulate some activity
+            setTimeout(() => {
+                addMessage('Type a message or send a GIF using the GIF button!', 'system');
+            }, 2000);
         }
 
         // Start the app
