@@ -440,7 +440,8 @@
             voiceConnections: {},
             currentChannel: 'text',
             members: [],
-            peerUsernames: {} // Tracks usernames by peer ID
+            peerUsernames: {}, // Tracks usernames by peer ID
+            remoteAudioElements: {} // Tracks audio elements for each peer
         };
 
         // DOM elements
@@ -520,6 +521,18 @@
                 state.connections = state.connections.filter(c => c !== conn);
                 removeMember(conn.peer);
                 delete state.peerUsernames[conn.peer];
+                
+                // Clean up voice connection if it exists
+                if (state.voiceConnections[conn.peer]) {
+                    state.voiceConnections[conn.peer].close();
+                    delete state.voiceConnections[conn.peer];
+                }
+                
+                // Clean up audio element if it exists
+                if (state.remoteAudioElements[conn.peer]) {
+                    state.remoteAudioElements[conn.peer].remove();
+                    delete state.remoteAudioElements[conn.peer];
+                }
             });
 
             conn.on('error', (err) => {
@@ -561,7 +574,15 @@
         // Voice chat functions
         async function initVoiceChat() {
             try {
-                state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                // Get microphone access with specific constraints for continuous transmission
+                state.localStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+                
                 state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 elements.voiceControls.style.display = 'flex';
                 elements.voiceIndicator.classList.add('active');
@@ -577,6 +598,9 @@
                 
                 // Update local member state
                 updateMemberVoiceState(state.peer.id, true);
+                
+                // Automatically connect to all peers in voice channel
+                startVoiceChat();
             } catch (err) {
                 console.error('Error accessing microphone:', err);
                 addMessage('Failed to access microphone. Please check permissions.', 'system');
@@ -588,6 +612,7 @@
             
             if (!state.localStream) {
                 await initVoiceChat();
+                return;
             }
             
             // Connect to all peers in the group
@@ -607,7 +632,7 @@
 
             state.voiceConnections[conn.peer] = peerConnection;
 
-            // Add local stream
+            // Add local stream - always add track for continuous transmission
             state.localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, state.localStream);
             });
@@ -624,13 +649,40 @@
 
             // Handle remote stream
             peerConnection.ontrack = (event) => {
-                const audio = new Audio();
-                audio.srcObject = event.streams[0];
-                audio.play();
+                // Create or reuse audio element for this peer
+                if (!state.remoteAudioElements[conn.peer]) {
+                    const audio = document.createElement('audio');
+                    audio.autoplay = true;
+                    audio.controls = false;
+                    audio.style.display = 'none';
+                    document.body.appendChild(audio);
+                    state.remoteAudioElements[conn.peer] = audio;
+                }
+                
+                // Update the audio stream
+                state.remoteAudioElements[conn.peer].srcObject = event.streams[0];
             };
 
             // Create offer
-            const offer = await peerConnection.createOffer();
+            const offer = await peerConnection.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: false
+            });
+            
+            // Set up continuous ice gathering
+            peerConnection.onnegotiationneeded = async () => {
+                try {
+                    const newOffer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(newOffer);
+                    conn.send({
+                        type: 'voice-offer',
+                        offer: peerConnection.localDescription
+                    });
+                } catch (err) {
+                    console.error('Error in renegotiation:', err);
+                }
+            };
+
             await peerConnection.setLocalDescription(offer);
 
             conn.send({
@@ -648,7 +700,7 @@
 
             state.voiceConnections[conn.peer] = peerConnection;
 
-            // Add local stream
+            // Add local stream - always add track for continuous transmission
             state.localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, state.localStream);
             });
@@ -665,9 +717,18 @@
 
             // Handle remote stream
             peerConnection.ontrack = (event) => {
-                const audio = new Audio();
-                audio.srcObject = event.streams[0];
-                audio.play();
+                // Create or reuse audio element for this peer
+                if (!state.remoteAudioElements[conn.peer]) {
+                    const audio = document.createElement('audio');
+                    audio.autoplay = true;
+                    audio.controls = false;
+                    audio.style.display = 'none';
+                    document.body.appendChild(audio);
+                    state.remoteAudioElements[conn.peer] = audio;
+                }
+                
+                // Update the audio stream
+                state.remoteAudioElements[conn.peer].srcObject = event.streams[0];
             };
 
             // Set remote description and create answer
@@ -708,6 +769,10 @@
             // Close all peer connections
             Object.values(state.voiceConnections).forEach(pc => pc.close());
             state.voiceConnections = {};
+            
+            // Remove all remote audio elements
+            Object.values(state.remoteAudioElements).forEach(audio => audio.remove());
+            state.remoteAudioElements = {};
             
             elements.voiceControls.style.display = 'none';
             elements.voiceIndicator.classList.remove('active');
