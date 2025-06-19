@@ -91,6 +91,23 @@
         .server-icon.add {
             background: rgba(255, 255, 255, 0.1);
             font-size: 28px;
+            position: relative;
+        }
+
+        .server-icon.add:hover::after {
+            content: 'Create Group';
+            position: absolute;
+            top: 50%;
+            left: 70px;
+            transform: translateY(-50%);
+            background: var(--dark);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: normal;
+            white-space: nowrap;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
 
         /* Channels sidebar */
@@ -751,13 +768,102 @@
                 left: 20px;
             }
         }
+        
+        /* New group action modal */
+        .group-action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .action-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        
+        .action-btn:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateY(-2px);
+        }
+        
+        .action-btn i {
+            font-size: 24px;
+        }
+        
+        .action-btn.create {
+            background: rgba(88, 101, 242, 0.2);
+            border: 1px solid var(--primary);
+        }
+        
+        .action-btn.create:hover {
+            background: rgba(88, 101, 242, 0.3);
+        }
+        
+        .action-btn.join {
+            background: rgba(59, 165, 92, 0.2);
+            border: 1px solid var(--success);
+        }
+        
+        .action-btn.join:hover {
+            background: rgba(59, 165, 92, 0.3);
+        }
+        
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 120px;
+            background-color: var(--dark);
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 0;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -60px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: var(--dark) transparent transparent transparent;
+        }
+        
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
     <!-- Servers sidebar -->
     <div class="servers" id="servers">
-        <div class="server-icon add" id="add-group">
+        <div class="server-icon add tooltip" id="add-group">
             <i class="fas fa-plus"></i>
+            <span class="tooltiptext">Create Group</span>
         </div>
         <!-- Groups will be added dynamically -->
     </div>
@@ -799,10 +905,8 @@
                         <span class="username">DiscordClone</span>
                         <span class="timestamp">Just now</span>
                     </div>
-                    <div class="message-text">Send GIFs using the GIF button!</div>
-                    <div class="gif-message">
-                        <img src="https://media.giphy.com/media/3o7aCTPPm4OHfRLSH6/giphy.gif" alt="GIF">
-                    </div>
+                    <div class="message-text">Click the <span style="color: var(--primary); font-weight: bold;">+ button</span> to create a new group!</div>
+                    <div class="message-text">To join existing groups, ask the group owner for an invite code.</div>
                 </div>
             </div>
         </div>
@@ -919,13 +1023,31 @@
     </div>
 
     <!-- Join Group Modal -->
-    <div class="modal" id="join-modal" style="display: none;">
+    <div class="modal" id="join-modal">
         <div class="modal-content">
             <div class="modal-title">Join a Group</div>
             <input type="text" class="modal-input" id="group-id-input" placeholder="Group Code">
             <div class="modal-buttons">
                 <button class="modal-btn secondary" id="cancel-join">Cancel</button>
                 <button class="modal-btn primary" id="join-group">Join</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Group Action Modal -->
+    <div class="modal" id="group-action-modal">
+        <div class="modal-content">
+            <div class="modal-title">Group Actions</div>
+            <div class="group-action-buttons">
+                <button class="action-btn create" id="create-group-action">
+                    <i class="fas fa-plus"></i>
+                    <span>Create New Group</span>
+                </button>
+                <button class="action-btn join" id="join-group-action">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span>Join Existing Group</span>
+                </button>
+                <button class="modal-btn secondary" id="cancel-group-action" style="margin-top: 20px;">Cancel</button>
             </div>
         </div>
     </div>
@@ -1032,7 +1154,11 @@
             gifPicker: document.getElementById('gif-picker'),
             gifClose: document.getElementById('gif-close'),
             gifSearch: document.getElementById('gif-search'),
-            gifGrid: document.getElementById('gif-grid')
+            gifGrid: document.getElementById('gif-grid'),
+            groupActionModal: document.getElementById('group-action-modal'),
+            createGroupAction: document.getElementById('create-group-action'),
+            joinGroupAction: document.getElementById('join-group-action'),
+            cancelGroupAction: document.getElementById('cancel-group-action')
         };
 
         // Sound functions
@@ -1151,7 +1277,7 @@
 
         // Render groups in the sidebar
         function renderGroups() {
-            elements.servers.innerHTML = '<div class="server-icon add" id="add-group"><i class="fas fa-plus"></i></div>';
+            elements.servers.innerHTML = '<div class="server-icon add tooltip" id="add-group"><i class="fas fa-plus"></i><span class="tooltiptext">Create Group</span></div>';
             
             state.groups.forEach(group => {
                 const serverIcon = document.createElement('div');
@@ -1437,7 +1563,21 @@
             });
             
             elements.addGroup.addEventListener('click', () => {
+                elements.groupActionModal.style.display = 'flex';
+            });
+            
+            elements.createGroupAction.addEventListener('click', () => {
+                elements.groupActionModal.style.display = 'none';
                 elements.groupModal.style.display = 'flex';
+            });
+            
+            elements.joinGroupAction.addEventListener('click', () => {
+                elements.groupActionModal.style.display = 'none';
+                elements.joinModal.style.display = 'flex';
+            });
+            
+            elements.cancelGroupAction.addEventListener('click', () => {
+                elements.groupActionModal.style.display = 'none';
             });
             
             elements.cancelGroup.addEventListener('click', () => {
