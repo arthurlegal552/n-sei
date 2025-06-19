@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord-Style Group Chat</title>
+    <title>Discord-Style Group Chat with Message Persistence</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -1075,7 +1075,9 @@
             channels: [],
             currentVoiceChannel: null,
             isMuted: false,
-            groupCodes: {}
+            groupCodes: {},
+            // Message storage: { groupId: { channelId: [messages] } }
+            messages: {}
         };
 
         // Sample GIFs for demonstration
@@ -1205,6 +1207,43 @@
             return code;
         }
 
+        // Save state to localStorage
+        function saveState() {
+            const stateToSave = {
+                groups: state.groups,
+                messages: state.messages,
+                groupCodes: state.groupCodes,
+                username: state.username
+            };
+            localStorage.setItem('discordCloneState', JSON.stringify(stateToSave));
+        }
+
+        // Load state from localStorage
+        function loadState() {
+            const savedState = localStorage.getItem('discordCloneState');
+            if (savedState) {
+                const parsed = JSON.parse(savedState);
+                state.groups = parsed.groups || [];
+                state.messages = parsed.messages || {};
+                state.groupCodes = parsed.groupCodes || {};
+                state.username = parsed.username || '';
+            }
+        }
+
+        // Initialize message storage for a group
+        function initMessageStorage(group) {
+            if (!state.messages[group.id]) {
+                state.messages[group.id] = {};
+                
+                // Initialize storage for each channel
+                group.textChannels.forEach(channel => {
+                    if (!state.messages[group.id][channel.id]) {
+                        state.messages[group.id][channel.id] = [];
+                    }
+                });
+            }
+        }
+
         // Create a new group
         function createGroup(name) {
             const groupCode = generateGroupCode();
@@ -1226,6 +1265,10 @@
             state.groups.push(group);
             state.currentGroup = group;
             state.groupCodes[groupCode] = group;
+            
+            // Initialize message storage
+            initMessageStorage(group);
+            
             renderGroups();
             renderChannels();
             
@@ -1234,6 +1277,9 @@
             
             addMessage(`Created group: ${name}`, 'system');
             playChannelChangeSound();
+            
+            // Save state
+            saveState();
         }
 
         // Join an existing group
@@ -1259,12 +1305,19 @@
             
             state.groups.push(group);
             state.currentGroup = group;
+            
+            // Initialize message storage if needed
+            initMessageStorage(group);
+            
             renderGroups();
             renderChannels();
             setActiveChannel(group.textChannels[0]);
             
             addMessage(`Joined group: ${group.name}`, 'system');
             playJoinSound();
+            
+            // Save state
+            saveState();
         }
 
         // Render groups in the sidebar
@@ -1370,50 +1423,104 @@
             } else if (state.currentVoiceChannel) {
                 leaveVoiceChat();
             }
+            
+            // Load messages for this channel
+            loadChannelMessages();
         }
 
-        // Add a message to the chat
-        function addMessage(text, type = 'local', username = state.username, gifUrl = null) {
+        // Load messages for the current channel
+        function loadChannelMessages() {
+            if (!state.currentGroup || !state.currentChannel || 
+                state.currentChannel.type !== 'text') return;
+            
+            const groupId = state.currentGroup.id;
+            const channelId = state.currentChannel.id;
+            
+            // Get messages for this channel
+            const messages = state.messages[groupId]?.[channelId] || [];
+            
+            // Render each message
+            messages.forEach(msg => {
+                createMessageElement(msg);
+            });
+            
+            // Scroll to bottom
+            elements.messages.scrollTop = elements.messages.scrollHeight;
+        }
+
+        // Create a message element
+        function createMessageElement(msg) {
             const messageElement = document.createElement('div');
             messageElement.className = 'message';
             
-            if (type === 'system') {
-                messageElement.innerHTML = `<div class="system-message">${text}</div>`;
-            } else if (gifUrl) {
-                const avatarText = username.substring(0, 2).toUpperCase();
-                const now = new Date();
-                const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                
+            const avatarText = msg.username.substring(0, 2).toUpperCase();
+            const time = new Date(msg.timestamp);
+            const timeString = time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            if (msg.type === 'text') {
                 messageElement.innerHTML = `
                     <div class="avatar">${avatarText}</div>
                     <div class="message-content">
                         <div class="message-header">
-                            <span class="username">${username}</span>
+                            <span class="username">${msg.username}</span>
+                            <span class="timestamp">${timeString}</span>
+                        </div>
+                        <div class="message-text">${msg.content}</div>
+                    </div>
+                `;
+            } else if (msg.type === 'gif') {
+                messageElement.innerHTML = `
+                    <div class="avatar">${avatarText}</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="username">${msg.username}</span>
                             <span class="timestamp">${timeString}</span>
                         </div>
                         <div class="gif-message">
-                            <img src="${gifUrl}" alt="GIF">
+                            <img src="${msg.content}" alt="GIF">
                         </div>
                     </div>
                 `;
-            } else {
-                const avatarText = username.substring(0, 2).toUpperCase();
-                const now = new Date();
-                const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                
-                messageElement.innerHTML = `
-                    <div class="avatar">${avatarText}</div>
-                    <div class="message-content">
-                        <div class="message-header">
-                            <span class="username">${username}</span>
-                            <span class="timestamp">${timeString}</span>
-                        </div>
-                        <div class="message-text">${text}</div>
-                    </div>
-                `;
+            } else if (msg.type === 'system') {
+                messageElement.innerHTML = `<div class="system-message">${msg.content}</div>`;
             }
             
             elements.messages.appendChild(messageElement);
+        }
+
+        // Add a message to the chat
+        function addMessage(content, type = 'text', username = state.username) {
+            if (!state.currentGroup || !state.currentChannel) return;
+            
+            const groupId = state.currentGroup.id;
+            const channelId = state.currentChannel.id;
+            
+            // Create message object
+            const message = {
+                id: 'msg-' + Date.now(),
+                type: type,
+                content: content,
+                username: username,
+                timestamp: new Date().toISOString()
+            };
+            
+            // For text channels, save the message
+            if (state.currentChannel.type === 'text') {
+                // Ensure storage exists
+                if (!state.messages[groupId]) state.messages[groupId] = {};
+                if (!state.messages[groupId][channelId]) state.messages[groupId][channelId] = [];
+                
+                // Add message to storage
+                state.messages[groupId][channelId].push(message);
+                
+                // Save state
+                saveState();
+            }
+            
+            // Create and append message element
+            createMessageElement(message);
+            
+            // Scroll to bottom
             elements.messages.scrollTop = elements.messages.scrollHeight;
             
             // Play message sound for non-system messages
@@ -1498,6 +1605,9 @@
             renderGroups();
             
             addMessage('Group settings updated', 'system');
+            
+            // Save state
+            saveState();
         }
 
         // Leave current group
@@ -1517,6 +1627,9 @@
             playLeaveSound();
             
             elements.settingsPanel.classList.remove('active');
+            
+            // Save state
+            saveState();
         }
 
         // Populate GIF grid
@@ -1536,7 +1649,7 @@
         // Send GIF function
         function sendGIF(gifUrl) {
             if (state.currentChannel && state.currentChannel.type === 'text') {
-                addMessage('', 'local', state.username, gifUrl);
+                addMessage(gifUrl, 'gif');
                 elements.gifPicker.style.display = 'none';
                 playGifSound();
             }
@@ -1544,10 +1657,12 @@
 
         // Initialize the app
         function init() {
+            // Load state from localStorage
+            loadState();
+            
             // Check if username is already set
-            const savedUsername = localStorage.getItem('username');
+            const savedUsername = state.username;
             if (savedUsername) {
-                state.username = savedUsername;
                 elements.usernameModal.style.display = 'none';
             } else {
                 // Set a default username
@@ -1564,12 +1679,28 @@
                     state.username = username;
                     localStorage.setItem('username', username);
                     elements.usernameModal.style.display = 'none';
+                    
+                    // Save state
+                    saveState();
                 }
             });
             
-            // FIXED: Directly show the group creation modal
             elements.addGroup.addEventListener('click', () => {
+                elements.groupActionModal.style.display = 'flex';
+            });
+            
+            elements.createGroupAction.addEventListener('click', () => {
+                elements.groupActionModal.style.display = 'none';
                 elements.groupModal.style.display = 'flex';
+            });
+            
+            elements.joinGroupAction.addEventListener('click', () => {
+                elements.groupActionModal.style.display = 'none';
+                elements.joinModal.style.display = 'flex';
+            });
+            
+            elements.cancelGroupAction.addEventListener('click', () => {
+                elements.groupActionModal.style.display = 'none';
             });
             
             elements.cancelGroup.addEventListener('click', () => {
@@ -1614,6 +1745,9 @@
                         });
                         renderChannels();
                         playChannelChangeSound();
+                        
+                        // Save state
+                        saveState();
                     }
                 }
             });
@@ -1622,13 +1756,23 @@
                 if (state.currentGroup) {
                     const channelName = prompt('Enter text channel name:');
                     if (channelName) {
-                        state.currentGroup.textChannels.push({
+                        const newChannel = {
                             id: 'text-' + Date.now(),
                             name: channelName,
                             type: 'text'
-                        });
+                        };
+                        state.currentGroup.textChannels.push(newChannel);
                         renderChannels();
                         playChannelChangeSound();
+                        
+                        // Initialize message storage for new channel
+                        if (!state.messages[state.currentGroup.id]) {
+                            state.messages[state.currentGroup.id] = {};
+                        }
+                        state.messages[state.currentGroup.id][newChannel.id] = [];
+                        
+                        // Save state
+                        saveState();
                     }
                 }
             });
@@ -1636,7 +1780,7 @@
             elements.messageInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter' && elements.messageInput.value.trim()) {
                     const message = elements.messageInput.value.trim();
-                    addMessage(message, 'local');
+                    addMessage(message, 'text');
                     elements.messageInput.value = '';
                 }
             });
