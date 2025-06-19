@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord-Style Group Chat with GIF Support</title>
+    <title>Discord-Style Group Chat</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -90,24 +90,16 @@
 
         .server-icon.add {
             background: rgba(255, 255, 255, 0.1);
-            font-size: 28px;
+            font-size: 24px;
             position: relative;
         }
 
-        .server-icon.add:hover::after {
-            content: 'Create Group';
-            position: absolute;
-            top: 50%;
-            left: 70px;
-            transform: translateY(-50%);
-            background: var(--dark);
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 14px;
-            font-weight: normal;
-            white-space: nowrap;
-            z-index: 1000;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        .server-icon.add i {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
         }
 
         /* Channels sidebar */
@@ -1277,8 +1269,21 @@
 
         // Render groups in the sidebar
         function renderGroups() {
-            elements.servers.innerHTML = '<div class="server-icon add tooltip" id="add-group"><i class="fas fa-plus"></i><span class="tooltiptext">Create Group</span></div>';
+            elements.servers.innerHTML = '';
             
+            // Add the create group button first
+            const addButton = document.createElement('div');
+            addButton.className = 'server-icon add tooltip';
+            addButton.id = 'add-group';
+            addButton.innerHTML = '<i class="fas fa-plus"></i><span class="tooltiptext">Create Group</span>';
+            elements.servers.appendChild(addButton);
+            
+            // Add event listener to the newly created button
+            addButton.addEventListener('click', () => {
+                elements.groupActionModal.style.display = 'flex';
+            });
+            
+            // Add existing groups
             state.groups.forEach(group => {
                 const serverIcon = document.createElement('div');
                 serverIcon.className = 'server-icon' + (state.currentGroup?.id === group.id ? ' active' : '');
@@ -1562,22 +1567,9 @@
                 }
             });
             
+            // FIXED: Directly show the group creation modal
             elements.addGroup.addEventListener('click', () => {
-                elements.groupActionModal.style.display = 'flex';
-            });
-            
-            elements.createGroupAction.addEventListener('click', () => {
-                elements.groupActionModal.style.display = 'none';
                 elements.groupModal.style.display = 'flex';
-            });
-            
-            elements.joinGroupAction.addEventListener('click', () => {
-                elements.groupActionModal.style.display = 'none';
-                elements.joinModal.style.display = 'flex';
-            });
-            
-            elements.cancelGroupAction.addEventListener('click', () => {
-                elements.groupActionModal.style.display = 'none';
             });
             
             elements.cancelGroup.addEventListener('click', () => {
