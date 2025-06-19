@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord-Style Group Chat with Message Persistence</title>
+    <title>Discord-Style Group Chat with PeerJS Voice</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -363,6 +364,11 @@
             box-shadow: 0 8px 25px rgba(0,0,0,0.4);
             z-index: 100;
             transition: all 0.4s ease;
+            display: none;
+        }
+
+        .voice-controls.active {
+            display: flex;
         }
 
         .voice-btn {
@@ -848,6 +854,76 @@
             visibility: visible;
             opacity: 1;
         }
+        
+        /* Voice participants list */
+        .participant-list {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(30, 33, 36, 0.9);
+            border-radius: 10px;
+            padding: 15px;
+            max-width: 250px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+            z-index: 100;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: none;
+        }
+        
+        .participant-list.active {
+            display: block;
+        }
+        
+        .participant-header {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .participant-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            border-radius: 6px;
+            margin-bottom: 5px;
+            background: rgba(0,0,0,0.2);
+        }
+        
+        .participant-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: white;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+        
+        .participant-name {
+            flex: 1;
+            color: var(--light);
+            font-size: 14px;
+        }
+        
+        .participant-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--gray);
+        }
+        
+        .participant-status.talking {
+            background-color: var(--success);
+            animation: pulse 1.5s infinite;
+        }
     </style>
 </head>
 <body>
@@ -924,12 +1000,12 @@
     </div>
 
     <!-- Voice controls -->
-    <div class="voice-controls" id="voice-controls" style="display: none;">
+    <div class="voice-controls" id="voice-controls">
         <div class="voice-status">
             <i class="fas fa-headphones"></i>
             <span id="current-voice-channel">General Voice</span>
         </div>
-        <div class="voice-btn connected" id="mute-btn">
+        <div class="voice-btn" id="mute-btn">
             <i class="fas fa-microphone"></i>
         </div>
         <div class="voice-btn" id="deafen-btn">
@@ -937,6 +1013,17 @@
         </div>
         <div class="voice-btn" id="leave-btn">
             <i class="fas fa-phone-slash"></i>
+        </div>
+    </div>
+    
+    <!-- Voice participants list -->
+    <div class="participant-list" id="participant-list">
+        <div class="participant-header">
+            <span>Voice Participants</span>
+            <i class="fas fa-times" id="close-participants"></i>
+        </div>
+        <div id="participants-container">
+            <!-- Participants will be added here dynamically -->
         </div>
     </div>
 
@@ -1076,23 +1163,15 @@
             currentVoiceChannel: null,
             isMuted: false,
             groupCodes: {},
-            // Message storage: { groupId: { channelId: [messages] } }
-            messages: {}
+            messages: {},
+            // PeerJS state
+            peer: null,
+            myPeerId: null,
+            mediaStream: null,
+            connections: {}, // Active peer connections
+            callActive: false,
+            participants: {} // {peerId: {username, stream, audio}}
         };
-
-        // Sample GIFs for demonstration
-        const sampleGIFs = [
-            {id: 'gif1', url: 'https://media.giphy.com/media/3o7aCTPPm4OHfRLSH6/giphy.gif'},
-            {id: 'gif2', url: 'https://media.giphy.com/media/l0HlOBZcl7sbV6LnO/giphy.gif'},
-            {id: 'gif3', url: 'https://media.giphy.com/media/3o7abAHdYv57BN4Gis/giphy.gif'},
-            {id: 'gif4', url: 'https://media.giphy.com/media/3o7TKwxYkeW0ZvTqsU/giphy.gif'},
-            {id: 'gif5', url: 'https://media.giphy.com/media/26tknCqiJrBQG6bxC/giphy.gif'},
-            {id: 'gif6', url: 'https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif'},
-            {id: 'gif7', url: 'https://media.giphy.com/media/l0HlHFRbmaZtBRhY4/giphy.gif'},
-            {id: 'gif8', url: 'https://media.giphy.com/media/l0HlNQ03J4Jp5PyV2/giphy.gif'},
-            {id: 'gif9', url: 'https://media.giphy.com/media/l0HlT2XhZvHh5Jfu8/giphy.gif'},
-            {id: 'gif10', url: 'https://media.giphy.com/media/3o7TKsQ8UQ4l4LhGz6/giphy.gif'},
-        ];
 
         // DOM elements
         const elements = {
@@ -1152,7 +1231,10 @@
             groupActionModal: document.getElementById('group-action-modal'),
             createGroupAction: document.getElementById('create-group-action'),
             joinGroupAction: document.getElementById('join-group-action'),
-            cancelGroupAction: document.getElementById('cancel-group-action')
+            cancelGroupAction: document.getElementById('cancel-group-action'),
+            participantList: document.getElementById('participant-list'),
+            participantsContainer: document.getElementById('participants-container'),
+            closeParticipants: document.getElementById('close-participants')
         };
 
         // Sound functions
@@ -1420,7 +1502,7 @@
             // If switching to voice channel, join it
             if (channel.type === 'voice') {
                 initVoiceChat();
-            } else if (state.currentVoiceChannel) {
+            } else if (state.callActive) {
                 leaveVoiceChat();
             }
             
@@ -1529,50 +1611,275 @@
             }
         }
 
-        // Initialize voice chat
+        // Initialize PeerJS
+        function initPeerJS() {
+            // Generate a unique peer ID using username and timestamp
+            const peerId = `${state.username.replace(/\s+/g, '')}-${Date.now().toString(36).slice(-5)}`;
+            
+            // Create a new Peer instance
+            state.peer = new Peer(peerId, {
+                host: '0.peerjs.com',
+                port: 443,
+                secure: true,
+                debug: 3
+            });
+            
+            state.peer.on('open', (id) => {
+                console.log('My peer ID is: ' + id);
+                state.myPeerId = id;
+            });
+            
+            state.peer.on('error', (err) => {
+                console.error('PeerJS Error:', err);
+                addMessage('Voice chat error: ' + err.type, 'system');
+            });
+            
+            // Handle incoming calls
+            state.peer.on('call', (call) => {
+                // Only accept calls if we're in a voice channel
+                if (!state.callActive || !state.mediaStream) {
+                    call.close();
+                    return;
+                }
+                
+                // Answer the call with our audio stream
+                call.answer(state.mediaStream);
+                
+                // Set up the call
+                call.on('stream', (remoteStream) => {
+                    handleNewParticipant(call.peer, remoteStream);
+                });
+                
+                call.on('close', () => {
+                    removeParticipant(call.peer);
+                });
+                
+                call.on('error', (err) => {
+                    console.error('Call error:', err);
+                    removeParticipant(call.peer);
+                });
+            });
+        }
+        
+        // Handle new participant joining
+        function handleNewParticipant(peerId, stream) {
+            // Check if we already have this participant
+            if (state.participants[peerId]) return;
+            
+            // Create an audio element for the remote stream
+            const audio = new Audio();
+            audio.srcObject = stream;
+            audio.autoplay = true;
+            audio.volume = 0.8;
+            
+            // Add to participants
+            state.participants[peerId] = {
+                username: peerId.split('-')[0], // Extract username from peerId
+                stream: stream,
+                audio: audio,
+                talking: false
+            };
+            
+            // Update UI
+            updateParticipantsUI();
+            
+            // Listen for audio activity
+            detectTalking(peerId, stream);
+        }
+        
+        // Remove a participant
+        function removeParticipant(peerId) {
+            if (!state.participants[peerId]) return;
+            
+            // Clean up
+            const tracks = state.participants[peerId].stream.getTracks();
+            tracks.forEach(track => track.stop());
+            
+            if (state.participants[peerId].audio) {
+                state.participants[peerId].audio.srcObject = null;
+            }
+            
+            // Remove from state
+            delete state.participants[peerId];
+            
+            // Update UI
+            updateParticipantsUI();
+        }
+        
+        // Detect when a participant is talking
+        function detectTalking(peerId, stream) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const analyser = audioContext.createAnalyser();
+            const microphone = audioContext.createMediaStreamSource(stream);
+            const javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+            
+            analyser.smoothingTimeConstant = 0.8;
+            analyser.fftSize = 1024;
+            
+            microphone.connect(analyser);
+            analyser.connect(javascriptNode);
+            javascriptNode.connect(audioContext.destination);
+            
+            javascriptNode.onaudioprocess = () => {
+                const array = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(array);
+                
+                // Calculate average volume
+                let values = 0;
+                for (let i = 0; i < array.length; i++) {
+                    values += array[i];
+                }
+                
+                const average = values / array.length;
+                const isTalking = average > 40; // Threshold for talking
+                
+                // Update talking state if changed
+                if (state.participants[peerId] && 
+                    state.participants[peerId].talking !== isTalking) {
+                    state.participants[peerId].talking = isTalking;
+                    updateParticipantsUI();
+                }
+            };
+        }
+        
+        // Update participants UI
+        function updateParticipantsUI() {
+            elements.participantsContainer.innerHTML = '';
+            
+            // Add self first
+            const selfItem = document.createElement('div');
+            selfItem.className = 'participant-item';
+            selfItem.innerHTML = `
+                <div class="participant-avatar">${state.username.substring(0, 2).toUpperCase()}</div>
+                <div class="participant-name">${state.username} (You)</div>
+                <div class="participant-status ${state.isMuted ? '' : 'talking'}"></div>
+            `;
+            elements.participantsContainer.appendChild(selfItem);
+            
+            // Add other participants
+            Object.keys(state.participants).forEach(peerId => {
+                const participant = state.participants[peerId];
+                const item = document.createElement('div');
+                item.className = 'participant-item';
+                item.innerHTML = `
+                    <div class="participant-avatar">${participant.username.substring(0, 2).toUpperCase()}</div>
+                    <div class="participant-name">${participant.username}</div>
+                    <div class="participant-status ${participant.talking ? 'talking' : ''}"></div>
+                `;
+                elements.participantsContainer.appendChild(item);
+            });
+        }
+        
+        // Connect to other participants in the voice channel
+        async function connectToParticipants() {
+            // In a real app, we would get the list of participants from a server
+            // For this demo, we'll simulate knowing other participants
+            const simulatedParticipants = ['User1234', 'User5678'];
+            
+            // Connect to each participant
+            simulatedParticipants.forEach(username => {
+                const peerId = `${username}-${state.currentGroup.id.slice(-5)}`; // Simulated peer ID
+                
+                // Only connect if we don't already have this connection
+                if (!state.connections[peerId] && peerId !== state.myPeerId) {
+                    const call = state.peer.call(peerId, state.mediaStream);
+                    
+                    call.on('stream', (remoteStream) => {
+                        handleNewParticipant(peerId, remoteStream);
+                    });
+                    
+                    call.on('close', () => {
+                        removeParticipant(peerId);
+                    });
+                    
+                    call.on('error', (err) => {
+                        console.error('Call error:', err);
+                        removeParticipant(peerId);
+                    });
+                    
+                    state.connections[peerId] = call;
+                }
+            });
+        }
+        
+        // Initialize voice chat with PeerJS
         async function initVoiceChat() {
             try {
-                // For demo, we'll simulate voice chat
-                elements.voiceControls.style.display = 'flex';
-                elements.voiceIndicator.classList.add('active');
-                elements.currentVoiceChannel.textContent = state.currentChannel.name;
+                // Initialize PeerJS if not already done
+                if (!state.peer) {
+                    initPeerJS();
+                }
                 
-                setTimeout(() => {
-                    elements.voiceControls.style.transform = 'translate(-50%, 0)';
-                    elements.voiceControls.style.opacity = '1';
-                }, 10);
+                // Get the user's microphone
+                state.mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: true,
+                    video: false 
+                });
+                
+                // Enable voice controls
+                elements.voiceControls.classList.add('active');
+                state.callActive = true;
+                
+                // Connect to other participants
+                setTimeout(connectToParticipants, 1000);
                 
                 addMessage('Joined voice channel', 'system');
                 playJoinSound();
+                
             } catch (err) {
                 console.error('Error accessing microphone:', err);
                 addMessage('Failed to access microphone. Please check permissions.', 'system');
             }
         }
-
+        
         // Leave voice chat
         function leaveVoiceChat() {
-            elements.voiceControls.style.transform = 'translate(-50%, 100px)';
-            elements.voiceControls.style.opacity = '0';
-            elements.voiceIndicator.classList.remove('active');
+            // Close all connections
+            Object.values(state.connections).forEach(call => {
+                call.close();
+            });
+            state.connections = {};
             
-            setTimeout(() => {
-                elements.voiceControls.style.display = 'none';
-            }, 300);
+            // Remove all participants
+            Object.keys(state.participants).forEach(peerId => {
+                removeParticipant(peerId);
+            });
+            state.participants = {};
+            
+            // Stop local media stream
+            if (state.mediaStream) {
+                state.mediaStream.getTracks().forEach(track => track.stop());
+                state.mediaStream = null;
+            }
+            
+            // Hide controls
+            elements.voiceControls.classList.remove('active');
+            elements.participantList.classList.remove('active');
+            state.callActive = false;
             
             addMessage('Left voice channel', 'system');
             playLeaveSound();
         }
-
+        
         // Toggle mute
         function toggleMute() {
+            if (!state.mediaStream) return;
+            
             state.isMuted = !state.isMuted;
+            
+            // Mute/unmute all audio tracks
+            state.mediaStream.getAudioTracks().forEach(track => {
+                track.enabled = !state.isMuted;
+            });
+            
+            // Update UI
             elements.muteBtn.classList.toggle('muted', state.isMuted);
             elements.muteBtn.innerHTML = state.isMuted ? 
                 '<i class="fas fa-microphone-slash"></i>' : 
                 '<i class="fas fa-microphone"></i>';
             
             addMessage(`You ${state.isMuted ? 'muted' : 'unmuted'} your microphone`, 'system');
+            updateParticipantsUI();
             
             // Play appropriate sound
             if (state.isMuted) {
@@ -1632,6 +1939,20 @@
             saveState();
         }
 
+        // Sample GIFs for demonstration
+        const sampleGIFs = [
+            {id: 'gif1', url: 'https://media.giphy.com/media/3o7aCTPPm4OHfRLSH6/giphy.gif'},
+            {id: 'gif2', url: 'https://media.giphy.com/media/l0HlOBZcl7sbV6LnO/giphy.gif'},
+            {id: 'gif3', url: 'https://media.giphy.com/media/3o7abAHdYv57BN4Gis/giphy.gif'},
+            {id: 'gif4', url: 'https://media.giphy.com/media/3o7TKwxYkeW0ZvTqsU/giphy.gif'},
+            {id: 'gif5', url: 'https://media.giphy.com/media/26tknCqiJrBQG6bxC/giphy.gif'},
+            {id: 'gif6', url: 'https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif'},
+            {id: 'gif7', url: 'https://media.giphy.com/media/l0HlHFRbmaZtBRhY4/giphy.gif'},
+            {id: 'gif8', url: 'https://media.giphy.com/media/l0HlNQ03J4Jp5PyV2/giphy.gif'},
+            {id: 'gif9', url: 'https://media.giphy.com/media/l0HlT2XhZvHh5Jfu8/giphy.gif'},
+            {id: 'gif10', url: 'https://media.giphy.com/media/3o7TKsQ8UQ4l4LhGz6/giphy.gif'},
+        ];
+
         // Populate GIF grid
         function populateGIFGrid() {
             elements.gifGrid.innerHTML = '';
@@ -1667,6 +1988,7 @@
             } else {
                 // Set a default username
                 state.username = "User" + Math.floor(Math.random() * 1000);
+                elements.usernameInput.value = state.username;
             }
             
             // Populate GIF grid
@@ -1833,6 +2155,10 @@
                 // In a real app, this would search for GIFs
                 // For demo, we'll just repopulate with the same GIFs
                 populateGIFGrid();
+            });
+            
+            elements.closeParticipants.addEventListener('click', () => {
+                elements.participantList.classList.remove('active');
             });
             
             // Simulate some activity
