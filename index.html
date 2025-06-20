@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatX with GIFs</title>
+    <title>ChatX with GIF Support</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -441,7 +441,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.8);
+            background-color: rgba(0,0,0,0.9);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -499,10 +499,12 @@
             cursor: pointer;
             transition: transform 0.2s;
             background-color: rgba(255,255,255,0.1);
+            position: relative;
         }
         
         .gif-item:hover {
             transform: scale(1.03);
+            box-shadow: 0 0 15px rgba(88, 101, 242, 0.5);
         }
         
         .gif-img {
@@ -524,6 +526,7 @@
             border-radius: 8px;
             overflow: hidden;
             margin-top: 5px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
         
         .gif-message img {
@@ -531,10 +534,50 @@
             height: auto;
             display: block;
         }
+        
+        .gif-tag {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background-color: var(--primary);
+            color: white;
+            font-size: 0.7rem;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        
+        .gif-category {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .gif-category-btn {
+            background-color: rgba(255,255,255,0.1);
+            color: var(--light);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .gif-category-btn:hover {
+            background-color: var(--primary);
+        }
+        
+        .gif-category-btn.active {
+            background-color: var(--primary);
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
-    <!-- Servers sidebar - now just has group management button -->
+    <!-- Servers sidebar -->
     <div class="servers">
         <div class="server-icon" id="group-management-btn">+</div>
     </div>
@@ -561,7 +604,7 @@
             <div class="input-container">
                 <input type="text" class="message-input" id="message-input" placeholder="Message #text-chat">
                 <div class="input-buttons">
-                    <button class="input-btn" id="gif-btn">
+                    <button class="input-btn" id="gif-btn" title="Send GIF">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect>
                             <path d="M16 8.5A4.5 4.5 0 1 1 7.5 14"></path>
@@ -647,6 +690,13 @@
             <input type="text" class="gif-search" id="gif-search" placeholder="Search GIFs...">
             <button class="gif-close" id="gif-close">✕</button>
         </div>
+        <div class="gif-category" id="gif-categories">
+            <button class="gif-category-btn active" data-category="trending">Trending</button>
+            <button class="gif-category-btn" data-category="reactions">Reactions</button>
+            <button class="gif-category-btn" data-category="animals">Animals</button>
+            <button class="gif-category-btn" data-category="memes">Memes</button>
+            <button class="gif-category-btn" data-category="gaming">Gaming</button>
+        </div>
         <div class="gif-grid" id="gif-grid">
             <div class="gif-loading">Loading trending GIFs...</div>
         </div>
@@ -669,6 +719,60 @@
             remoteAudioElements: {},
             voiceRequestFrom: null,
             pendingVoiceRequest: null
+        };
+
+        // Predefined GIFs for demo purposes
+        const demoGifs = {
+            trending: [
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMGJ1Z2g2eG1pM3VjNDV3dHl1M2N2c3d2d2V6b2F2eWl5dGd3bGk2bSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7aCTPPm4OHfRLSH6/giphy.gif", tag: "dancing"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM2N0bGx6cWZvZ3U1cXQ1Y3Q1c3V2b2NwM3NqM2pzZ2l0bG5pYyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7abAHdYvZdBNnGZq/giphy.gif", tag: "hello"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHp1b2V3dGp4d3J6bG5jM3NkM2RlN3V1cWJmZ3Z5d3R4dHZqNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT0Gqn3yqw4C2LdZ44/giphy.gif", tag: "cat"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2FzMWZqMWk0cXQzY3d3d3ZzM2J1c2t4Z3Q1eWJ5b2x5c3d2eSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlG8vJXW0X5yX4s/giphy.gif", tag: "laughing"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2N0eXJ0M2Jjd2x2b3g3bGx4cW1tYzJ5dWZ0Z3FzM2N0cW9scnRzZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3ohzdIuqJoo8QdKlnW/giphy.gif", tag: "excited"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbGx6dmh3b3d6a2x5dXF2Y3J6cTZ3c3c4d3Y1a2lzN2NxbmV1a3l1ZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26n6WywJyh39n1pBu/giphy.gif", tag: "dog"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd3B1NWFqY3F3N2p4c2o5cG00Z2xrbTBmM2F0a2J1dGJ2bWlwbnB6YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKsQ8UQ4l4LhX4c/giphy.gif", tag: "clapping"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdGV1Z2Y2b2h6d2J6d2Z0bDB5M3Q1bWJ5eXJmY3J5b2Z1b2k0aGxjZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKSqHaKRS1qy6sU/giphy.gif", tag: "thumbs up"}
+            ],
+            reactions: [
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM2N0bGx6cWZvZ3U1cXQ1Y3Q1c3V2b2NwM3NqM2pzZ2l0bG5pYyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7abAHdYvZdBNnGZq/giphy.gif", tag: "hello"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2FzMWZqMWk0cXQzY3d3d3ZzM2J1c2t4Z3Q1eWJ5b2x5c3d2eSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlG8vJXW0X5yX4s/giphy.gif", tag: "laughing"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2N0eXJ0M2Jjd2x2b3g3bGx4cW1tYzJ5dWZ0Z3FzM2N0cW9scnRzZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3ohzdIuqJoo8QdKlnW/giphy.gif", tag: "excited"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbGx6dmh3b3d6a2x5dXF2Y3J6cTZ3c3c4d3Y1a2lzN2NxbmV1a3l1ZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26n6WywJyh39n1pBu/giphy.gif", tag: "surprised"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd3B1NWFqY3F3N2p4c2o5cG00Z2xrbTBmM2F0a2J1dGJ2bWlwbnB6YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKsQ8UQ4l4LhX4c/giphy.gif", tag: "clapping"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdGV1Z2Y2b2h6d2J6d2Z0bDB5M3Q1bWJ5eXJmY3J5b2Z1b2k0aGxjZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKSqHaKRS1qy6sU/giphy.gif", tag: "thumbs up"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2F6bG13d2s4d2JtNWNxY3l6d2Z1bW1xM2J2cWl2M2JjZ3k3bWQ4dCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlGzqjz8e0y5V4s/giphy.gif", tag: "facepalm"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExb2M5dHd3aGZ4a3l6bWY4bHd0b3VjZ3N0M2M2c3NxZ2l3b3h2bXV1dCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlNQ03J8asX8dM4/giphy.gif", tag: "mind blown"}
+            ],
+            animals: [
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHp1b2V3dGp4d3J6bG5jM3NkM2RlN3V1cWJmZ3Z5d3R4dHZqNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT0Gqn3yqw4C2LdZ44/giphy.gif", tag: "cat"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbGx6dmh3b3d6a2x5dXF2Y3J6cTZ3c3c4d3Y1a2lzN2NxbmV1a3l1ZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26n6WywJyh39n1pBu/giphy.gif", tag: "dog"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2FzMWZqMWk0cXQzY3d3d3ZzM2J1c2t4Z3Q1eWJ5b2x5c3d2eSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlG8vJXW0X5yX4s/giphy.gif", tag: "panda"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2F6bG13d2s4d2JtNWNxY3l6d2Z1bW1xM2J2cWl2M2JjZ3k3bWQ4dCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlGzqjz8e0y5V4s/giphy.gif", tag: "koala"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdGV1Z2Y2b2h6d2J6d2Z0bDB5M3Q1bWJ5eXJmY3J5b2Z1b2k0aGxjZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKSqHaKRS1qy6sU/giphy.gif", tag: "rabbit"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd3B1NWFqY3F3N2p4c2o5cG00Z2xrbTBmM2F0a2J1dGJ2bWlwbnB6YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKsQ8UQ4l4LhX4c/giphy.gif", tag: "monkey"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExb2M5dHd3aGZ4a3l6bWY4bHd0b3VjZ3N0M2M2c3NxZ2l3b3h2bXV1dCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlNQ03J8asX8dM4/giphy.gif", tag: "bird"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2N0eXJ0M2Jjd2x2b3g3bGx4cW1tYzJ5dWZ0Z3FzM2N0cW9scnRzZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3ohzdIuqJoo8QdKlnW/giphy.gif", tag: "penguin"}
+            ],
+            memes: [
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2F6bG13d2s4d2JtNWNxY3l6d2Z1bW1xM2J2cWl2M2JjZ3k3bWQ4dCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlGzqjz8e0y5V4s/giphy.gif", tag: "drake"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExb2M5dHd3aGZ4a3l6bWY4bHd0b3VjZ3N0M2M2c3NxZ2l3b3h2bXV1dCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlNQ03J8asX8dM4/giphy.gif", tag: "distracted boyfriend"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2FzMWZqMWk0cXQzY3d3d3ZzM2J1c2t4Z3Q1eWJ5b2x5c3d2eSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlG8vJXW0X5yX4s/giphy.gif", tag: "roll safe"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdGV1Z2Y2b2h6d2J6d2Z0bDB5M3Q1bWJ5eXJmY3J5b2Z1b2k0aGxjZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKSqHaKRS1qy6sU/giphy.gif", tag: "success kid"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd3B1NWFqY3F3N2p4c2o5cG00Z2xrbTBmM2F0a2J1dGJ2bWlwbnB6YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKsQ8UQ4l4LhX4c/giphy.gif", tag: "aliens"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2N0eXJ0M2Jjd2x2b3g3bGx4cW1tYzJ5dWZ0Z3FzM2N0cW9scnRzZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3ohzdIuqJoo8QdKlnW/giphy.gif", tag: "one does not simply"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbGx6dmh3b3d6a2x5dXF2Y3J6cTZ3c3c4d3Y1a2lzN2NxbmV1a3l1ZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26n6WywJyh39n1pBu/giphy.gif", tag: "bad luck brian"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHp1b2V3dGp4d3J6bG5jM3NkM2RlN3V1cWJmZ3Z5d3R4dHZqNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT0Gqn3yqw4C2LdZ44/giphy.gif", tag: "grumpy cat"}
+            ],
+            gaming: [
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdGV1Z2Y2b2h6d2J6d2Z0bDB5M3Q1bWJ5eXJmY3J5b2Z1b2k0aGxjZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKSqHaKRS1qy6sU/giphy.gif", tag: "minecraft"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd3B1NWFqY3F3N2p4c2o5cG00Z2xrbTBmM2F0a2J1dGJ2bWlwbnB6YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKsQ8UQ4l4LhX4c/giphy.gif", tag: "fortnite"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2N0eXJ0M2Jjd2x2b3g3bGx4cW1tYzJ5dWZ0Z3FzM2N0cW9scnRzZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3ohzdIuqJoo8QdKlnW/giphy.gif", tag: "league of legends"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbGx6dmh3b3d6a2x5dXF2Y3J6cTZ3c3c4d3Y1a2lzN2NxbmV1a3l1ZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26n6WywJyh39n1pBu/giphy.gif", tag: "overwatch"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHp1b2V3dGp4d3J6bG5jM3NkM2RlN3V1cWJmZ3Z5d3R4dHZqNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT0Gqn3yqw4C2LdZ44/giphy.gif", tag: "valorant"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2FzMWZqMWk0cXQzY3d3d3ZzM2J1c2t4Z3Q1eWJ5b2x5c3d2eSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlG8vJXW0X5yX4s/giphy.gif", tag: "csgo"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2F6bG13d2s4d2JtNWNxY3l6d2Z1bW1xM2J2cWl2M2JjZ3k3bWQ4dCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlGzqjz8e0y5V4s/giphy.gif", tag: "dota"},
+                {url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExb2M5dHd3aGZ4a3l6bWY4bHd0b3VjZ3N0M2M2c3NxZ2l3b3h2bXV1dCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlNQ03J8asX8dM4/giphy.gif", tag: "among us"}
+            ]
         };
 
         // DOM elements
@@ -699,7 +803,8 @@
             gifModal: document.getElementById('gif-modal'),
             gifSearch: document.getElementById('gif-search'),
             gifGrid: document.getElementById('gif-grid'),
-            gifClose: document.getElementById('gif-close')
+            gifClose: document.getElementById('gif-close'),
+            gifCategories: document.getElementById('gif-categories')
         };
 
         // Initialize PeerJS
@@ -1079,39 +1184,33 @@
         }
 
         // GIF Functions
-        async function fetchGifs(query = '') {
+        function fetchGifs(category = 'trending') {
             elements.gifGrid.innerHTML = '<div class="gif-loading">Loading GIFs...</div>';
             
-            try {
-                // Using GIPHY API - replace with your own API key for production
-                const apiKey = 'Gc7131jiJuvI7IdN0HZ1D7z0Ywpph02G';
-                const endpoint = query 
-                    ? `https://api.giphy.com/v1/gifs/search?api_key=${apiKey}&q=${encodeURIComponent(query)}&limit=20`
-                    : `https://api.giphy.com/v1/gifs/trending?api_key=${apiKey}&limit=20`;
-                
-                const response = await fetch(endpoint);
-                const data = await response.json();
-                
-                if (data.data && data.data.length) {
+            // Simulate API call with timeout
+            setTimeout(() => {
+                try {
+                    const gifs = demoGifs[category] || demoGifs.trending;
+                    
                     elements.gifGrid.innerHTML = '';
-                    data.data.forEach(gif => {
-                        const gifUrl = gif.images.fixed_height.url;
+                    gifs.forEach(gif => {
                         const gifItem = document.createElement('div');
                         gifItem.className = 'gif-item';
-                        gifItem.innerHTML = `<img src="${gifUrl}" alt="GIF" class="gif-img">`;
+                        gifItem.innerHTML = `
+                            <img src="${gif.url}" alt="GIF" class="gif-img">
+                            <div class="gif-tag">${gif.tag}</div>
+                        `;
                         gifItem.addEventListener('click', () => {
-                            sendGif(gifUrl);
+                            sendGif(gif.url);
                             elements.gifModal.style.display = 'none';
                         });
                         elements.gifGrid.appendChild(gifItem);
                     });
-                } else {
-                    elements.gifGrid.innerHTML = '<div class="gif-loading">No GIFs found. Try another search.</div>';
+                } catch (error) {
+                    console.error('Error fetching GIFs:', error);
+                    elements.gifGrid.innerHTML = '<div class="gif-loading">Failed to load GIFs. Please try again later.</div>';
                 }
-            } catch (error) {
-                console.error('Error fetching GIFs:', error);
-                elements.gifGrid.innerHTML = '<div class="gif-loading">Failed to load GIFs. Please try again later.</div>';
-            }
+            }, 500);
         }
 
         function sendGif(gifUrl) {
@@ -1415,8 +1514,24 @@
             if (e.key === 'Enter') {
                 const query = elements.gifSearch.value.trim();
                 if (query) {
-                    fetchGifs(query);
+                    // In a real app, this would search the API
+                    addMessage(`Searching for "${query}" GIFs...`, 'system');
                 }
+            }
+        });
+        
+        // GIF Categories
+        elements.gifCategories.addEventListener('click', (e) => {
+            if (e.target.classList.contains('gif-category-btn')) {
+                // Update active button
+                document.querySelectorAll('.gif-category-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                e.target.classList.add('active');
+                
+                // Load GIFs for category
+                const category = e.target.dataset.category;
+                fetchGifs(category);
             }
         });
 
