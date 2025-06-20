@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord-Style Chat with Reliable Voice</title>
+    <title>Discord-Style Chat with Voice Presence</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
@@ -195,6 +195,14 @@
             text-align: center;
         }
 
+        .channel .user-count {
+            margin-left: auto;
+            background: var(--darker);
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 12px;
+        }
+
         /* Main chat area */
         .chat {
             flex: 1;
@@ -307,6 +315,21 @@
             text-align: center;
             padding: 10px 0;
             font-style: italic;
+        }
+
+        .voice-activity {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 10px;
+            background: rgba(59, 165, 92, 0.1);
+            border-radius: 6px;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+
+        .voice-activity i {
+            color: var(--success);
         }
 
         /* Input area */
@@ -1001,7 +1024,7 @@
                         <span class="timestamp">Just now</span>
                     </div>
                     <div class="message-text">Click the <span style="color: var(--primary); font-weight: bold;">+ button</span> to create a new group!</div>
-                    <div class="message-text">Voice chat is now working reliably with our new implementation!</div>
+                    <div class="message-text">Voice chat shows when users enter/leave channels</div>
                 </div>
             </div>
         </div>
@@ -1178,7 +1201,8 @@
             connections: {},
             callActive: false,
             participants: {},
-            connectionStatus: 'disconnected'
+            connectionStatus: 'disconnected',
+            voiceChannelUsers: {} // {channelId: [user objects]}
         };
 
         // DOM elements
@@ -1332,21 +1356,33 @@
             audio.autoplay = true;
             audio.volume = 0.8;
             
+            // Extract username from peerId
+            const username = peerId.split('-')[0];
+            
             // Add to participants
             state.participants[peerId] = {
-                username: peerId.split('-')[0],
+                username: username,
                 stream: stream,
                 audio: audio,
                 talking: false
             };
             
+            // Add user to voice channel
+            addUserToVoiceChannel(state.currentVoiceChannel.id, username);
+            
             // Update UI
             updateParticipantsUI();
+            
+            // Add system message
+            addMessage(`${username} joined the voice channel`, 'system');
         }
         
         // Remove a participant
         function removeParticipant(peerId) {
             if (!state.participants[peerId]) return;
+            
+            // Get username before removing
+            const username = state.participants[peerId].username;
             
             // Clean up
             const tracks = state.participants[peerId].stream.getTracks();
@@ -1359,8 +1395,14 @@
             // Remove from state
             delete state.participants[peerId];
             
+            // Remove user from voice channel
+            removeUserFromVoiceChannel(state.currentVoiceChannel.id, username);
+            
             // Update UI
             updateParticipantsUI();
+            
+            // Add system message
+            addMessage(`${username} left the voice channel`, 'system');
         }
         
         // Update participants UI
@@ -1391,6 +1433,46 @@
             });
         }
         
+        // Add user to voice channel
+        function addUserToVoiceChannel(channelId, username) {
+            if (!state.voiceChannelUsers[channelId]) {
+                state.voiceChannelUsers[channelId] = [];
+            }
+            
+            if (!state.voiceChannelUsers[channelId].includes(username)) {
+                state.voiceChannelUsers[channelId].push(username);
+                updateVoiceChannelUserCount(channelId);
+            }
+        }
+        
+        // Remove user from voice channel
+        function removeUserFromVoiceChannel(channelId, username) {
+            if (state.voiceChannelUsers[channelId]) {
+                const index = state.voiceChannelUsers[channelId].indexOf(username);
+                if (index !== -1) {
+                    state.voiceChannelUsers[channelId].splice(index, 1);
+                    updateVoiceChannelUserCount(channelId);
+                }
+            }
+        }
+        
+        // Update user count in voice channel UI
+        function updateVoiceChannelUserCount(channelId) {
+            const channelElement = document.querySelector(`.channel[data-id="${channelId}"]`);
+            if (channelElement) {
+                const userCount = state.voiceChannelUsers[channelId]?.length || 0;
+                let countElement = channelElement.querySelector('.user-count');
+                
+                if (!countElement) {
+                    countElement = document.createElement('span');
+                    countElement.className = 'user-count';
+                    channelElement.appendChild(countElement);
+                }
+                
+                countElement.textContent = userCount;
+            }
+        }
+        
         // Initialize voice chat
         async function initVoiceChat() {
             try {
@@ -1409,42 +1491,18 @@
                 elements.voiceControls.classList.add('active');
                 state.callActive = true;
                 
-                addMessage('Joined voice channel', 'system');
-                updateConnectionStatus('connected', 'In voice channel');
+                // Add user to voice channel
+                addUserToVoiceChannel(state.currentVoiceChannel.id, state.username);
                 
-                // Simulate participants for demo
-                simulateParticipants();
+                // Add system message
+                addMessage(`${state.username} joined the voice channel`, 'system');
+                updateConnectionStatus('connected', 'In voice channel');
                 
             } catch (err) {
                 console.error('Error accessing microphone:', err);
                 updateConnectionStatus('error', 'Microphone access denied');
                 addMessage('Failed to access microphone. Please check permissions.', 'system');
             }
-        }
-        
-        // Simulate participants for demo
-        function simulateParticipants() {
-            // Simulated participants
-            const participants = ['Alex', 'Taylor', 'Jordan'];
-            
-            participants.forEach((name, index) => {
-                setTimeout(() => {
-                    // Simulate participant joining
-                    const peerId = `${name}-${Date.now().toString(36).slice(-5)}`;
-                    
-                    // Add to participants
-                    state.participants[peerId] = {
-                        username: name,
-                        stream: null,
-                        audio: null,
-                        talking: Math.random() > 0.5
-                    };
-                    
-                    // Update UI
-                    updateParticipantsUI();
-                    addMessage(`${name} joined the voice channel`, 'system');
-                }, 1500 * (index + 1));
-            });
         }
         
         // Leave voice chat
@@ -1467,12 +1525,17 @@
                 state.mediaStream = null;
             }
             
+            // Remove self from voice channel
+            removeUserFromVoiceChannel(state.currentVoiceChannel.id, state.username);
+            
+            // Add system message
+            addMessage(`${state.username} left the voice channel`, 'system');
+            
             // Hide controls
             elements.voiceControls.classList.remove('active');
             elements.participantsPanel.classList.remove('active');
             state.callActive = false;
             
-            addMessage('Left voice channel', 'system');
             updateConnectionStatus('disconnected', 'Voice chat ended');
         }
         
@@ -1493,7 +1556,16 @@
                 '<i class="fas fa-microphone-slash"></i>' : 
                 '<i class="fas fa-microphone"></i>';
             
-            addMessage(`You ${state.isMuted ? 'muted' : 'unmuted'} your microphone`, 'system');
+            // Add activity message
+            const activityElement = document.createElement('div');
+            activityElement.className = 'voice-activity';
+            activityElement.innerHTML = `
+                <i class="fas fa-microphone${state.isMuted ? '-slash' : ''}"></i>
+                <span>You ${state.isMuted ? 'muted' : 'unmuted'} your microphone</span>
+            `;
+            elements.messages.appendChild(activityElement);
+            elements.messages.scrollTop = elements.messages.scrollHeight;
+            
             updateParticipantsUI();
         }
 
@@ -1669,7 +1741,11 @@
                 channelEl.className = 'channel';
                 channelEl.dataset.id = channel.id;
                 channelEl.dataset.type = 'voice';
-                channelEl.innerHTML = `<i class="fas fa-volume-up"></i><span>${channel.name}</span>`;
+                channelEl.innerHTML = `
+                    <i class="fas fa-volume-up"></i>
+                    <span>${channel.name}</span>
+                    <span class="user-count">${state.voiceChannelUsers[channel.id]?.length || 0}</span>
+                `;
                 channelEl.onclick = () => {
                     setActiveChannel(channel);
                 };
@@ -1715,9 +1791,11 @@
             
             // If switching to voice channel, join it
             if (channel.type === 'voice') {
+                state.currentVoiceChannel = channel;
                 initVoiceChat();
             } else if (state.callActive) {
                 leaveVoiceChat();
+                state.currentVoiceChannel = null;
             }
             
             // Load messages for this channel
